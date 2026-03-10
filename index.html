@@ -621,30 +621,75 @@
         <div class="profil-sub">Membre FORGE</div>
       </div>
 
+      <!-- Sons -->
+      <div class="section-title">Audio</div>
       <div class="settings-group">
         <div class="settings-item" onclick="toggleSon()">
           <div class="settings-item-left">
-            <div class="settings-icon">🔔</div>
+            <div class="settings-icon">🔊</div>
             <div class="settings-text">Sons de timer</div>
           </div>
           <div class="toggle-switch on" id="toggle-son"></div>
         </div>
-        <div class="settings-item" onclick="showToast('Notifications activées !')">
+      </div>
+
+      <!-- Notifications -->
+      <div class="section-title" style="margin-top:16px;">Notifications</div>
+      <div id="notif-permission-banner" style="display:none; background:rgba(124,58,237,0.1); border:1px solid var(--border); border-radius:16px; padding:14px 16px; margin-bottom:10px; font-size:13px; color:var(--text-muted); line-height:1.5;">
+        ⚠️ Pour recevoir des notifications, installe l'app sur ton écran d'accueil via Safari → Partager → Sur l'écran d'accueil
+      </div>
+      <div class="settings-group">
+        <div class="settings-item" onclick="toggleNotifRappel()">
           <div class="settings-item-left">
-            <div class="settings-icon">📲</div>
-            <div class="settings-text">Notifications</div>
+            <div class="settings-icon">💪</div>
+            <div>
+              <div class="settings-text">Rappel quotidien</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;" id="notif-rappel-time-label">Tous les jours</div>
+            </div>
           </div>
-          <div class="toggle-switch" id="toggle-notif"></div>
+          <div class="toggle-switch" id="toggle-notif-rappel"></div>
         </div>
-        <div class="settings-item" onclick="showToast('Bientôt disponible')">
+        <!-- Heure du rappel -->
+        <div class="settings-item" id="notif-time-row" style="display:none;">
           <div class="settings-item-left">
-            <div class="settings-icon">🌙</div>
-            <div class="settings-text">Thème</div>
+            <div class="settings-icon">🕐</div>
+            <div class="settings-text">Heure du rappel</div>
           </div>
-          <span class="settings-arrow">Violet ›</span>
+          <input type="time" id="notif-time-input" value="18:00"
+            onchange="saveNotifTime(this.value)"
+            style="background:var(--bg4); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:6px 10px; font-size:14px; width:auto; outline:none;" />
+        </div>
+        <div class="settings-item" onclick="toggleNotifInactivite()">
+          <div class="settings-item-left">
+            <div class="settings-icon">😴</div>
+            <div>
+              <div class="settings-text">Rappel si inactif</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;" id="notif-inactif-label">Après 3 jours sans séance</div>
+            </div>
+          </div>
+          <div class="toggle-switch" id="toggle-notif-inactif"></div>
+        </div>
+        <div class="settings-item" onclick="toggleNotifResume()">
+          <div class="settings-item-left">
+            <div class="settings-icon">📊</div>
+            <div>
+              <div class="settings-text">Résumé hebdomadaire</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Chaque dimanche soir</div>
+            </div>
+          </div>
+          <div class="toggle-switch" id="toggle-notif-resume"></div>
+        </div>
+        <div class="settings-item" onclick="testNotification()">
+          <div class="settings-item-left">
+            <div class="settings-icon">🧪</div>
+            <div class="settings-text">Tester une notification</div>
+          </div>
+          <span class="settings-arrow">›</span>
         </div>
       </div>
 
+      <!-- Données -->
+      <div class="section-title" style="margin-top:16px;">Données</div>
       <div class="settings-group">
         <div class="settings-item" onclick="exportData()">
           <div class="settings-item-left">
@@ -653,6 +698,14 @@
           </div>
           <span class="settings-arrow">›</span>
         </div>
+        <div class="settings-item" onclick="document.getElementById('import-input').click()">
+          <div class="settings-item-left">
+            <div class="settings-icon">📥</div>
+            <div class="settings-text">Importer mes données</div>
+          </div>
+          <span class="settings-arrow">›</span>
+        </div>
+        <input type="file" id="import-input" accept=".json" style="display:none;" onchange="importData(event)" />
         <div class="settings-item" onclick="if(confirm('Effacer toutes les données ?')) clearData()">
           <div class="settings-item-left">
             <div class="settings-icon">🗑️</div>
@@ -1216,22 +1269,289 @@
     settings.son = !settings.son;
     DB.set('settings', settings);
     document.getElementById('toggle-son').classList.toggle('on', settings.son);
-    showToast(settings.son ? 'Sons activés 🔔' : 'Sons désactivés 🔕');
+    showToast(settings.son ? 'Sons activés 🔊' : 'Sons désactivés 🔕');
   }
 
+  // ══ NOTIFICATIONS ══
+  let swRegistration = null;
+
+  async function initNotifications() {
+    // Vérifie si on est en mode PWA installée
+    const isStandalone = window.navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+      document.getElementById('notif-permission-banner').style.display = 'block';
+      return;
+    }
+
+    // Enregistre le service worker inline
+    try {
+      const swBlob = new Blob([`
+        self.addEventListener('notificationclick', e => {
+          e.notification.close();
+          e.waitUntil(clients.openWindow('/'));
+        });
+        self.addEventListener('message', e => {
+          if (e.data && e.data.type === 'SCHEDULE') {
+            // reçu
+          }
+        });
+      `], { type: 'application/javascript' });
+      const swUrl = URL.createObjectURL(swBlob);
+      swRegistration = await navigator.serviceWorker.register(swUrl);
+    } catch(e) {
+      console.log('SW error:', e);
+    }
+
+    // Restore toggles
+    document.getElementById('toggle-notif-rappel').classList.toggle('on', !!settings.notifRappel);
+    document.getElementById('toggle-notif-inactif').classList.toggle('on', !!settings.notifInactif);
+    document.getElementById('toggle-notif-resume').classList.toggle('on', !!settings.notifResume);
+    if (settings.notifRappel) {
+      document.getElementById('notif-time-row').style.display = 'flex';
+      document.getElementById('notif-time-input').value = settings.notifTime || '18:00';
+      document.getElementById('notif-rappel-time-label').textContent = `Tous les jours à ${settings.notifTime || '18:00'}`;
+    }
+
+    // Planifie les notifs si permission déjà accordée
+    if (Notification.permission === 'granted') {
+      scheduleAllNotifications();
+    }
+  }
+
+  async function requestNotifPermission() {
+    if (!('Notification' in window)) {
+      showToast('⚠️ Installe l\'app depuis Safari d\'abord');
+      return false;
+    }
+    if (Notification.permission === 'granted') return true;
+    if (Notification.permission === 'denied') {
+      showToast('Notifications bloquées — vérifie les réglages iOS');
+      return false;
+    }
+    const result = await Notification.requestPermission();
+    return result === 'granted';
+  }
+
+  async function toggleNotifRappel() {
+    if (!settings.notifRappel) {
+      const ok = await requestNotifPermission();
+      if (!ok) return;
+      settings.notifRappel = true;
+      document.getElementById('notif-time-row').style.display = 'flex';
+      const t = settings.notifTime || '18:00';
+      document.getElementById('notif-rappel-time-label').textContent = `Tous les jours à ${t}`;
+      showToast('Rappel quotidien activé ✓');
+    } else {
+      settings.notifRappel = false;
+      document.getElementById('notif-time-row').style.display = 'none';
+      document.getElementById('notif-rappel-time-label').textContent = 'Tous les jours';
+      showToast('Rappel quotidien désactivé');
+    }
+    DB.set('settings', settings);
+    document.getElementById('toggle-notif-rappel').classList.toggle('on', settings.notifRappel);
+    scheduleAllNotifications();
+  }
+
+  async function toggleNotifInactivite() {
+    if (!settings.notifInactif) {
+      const ok = await requestNotifPermission();
+      if (!ok) return;
+      settings.notifInactif = true;
+      showToast('Rappel inactivité activé ✓');
+    } else {
+      settings.notifInactif = false;
+      showToast('Rappel inactivité désactivé');
+    }
+    DB.set('settings', settings);
+    document.getElementById('toggle-notif-inactif').classList.toggle('on', settings.notifInactif);
+    scheduleAllNotifications();
+  }
+
+  async function toggleNotifResume() {
+    if (!settings.notifResume) {
+      const ok = await requestNotifPermission();
+      if (!ok) return;
+      settings.notifResume = true;
+      showToast('Résumé hebdomadaire activé ✓');
+    } else {
+      settings.notifResume = false;
+      showToast('Résumé hebdomadaire désactivé');
+    }
+    DB.set('settings', settings);
+    document.getElementById('toggle-notif-resume').classList.toggle('on', settings.notifResume);
+    scheduleAllNotifications();
+  }
+
+  function saveNotifTime(val) {
+    settings.notifTime = val;
+    DB.set('settings', settings);
+    document.getElementById('notif-rappel-time-label').textContent = `Tous les jours à ${val}`;
+    scheduleAllNotifications();
+    showToast(`Rappel réglé à ${val} ✓`);
+  }
+
+  function scheduleAllNotifications() {
+    // Annule les anciens timers
+    if (window._notifTimers) window._notifTimers.forEach(clearTimeout);
+    window._notifTimers = [];
+
+    if (Notification.permission !== 'granted') return;
+
+    const now = new Date();
+
+    // ── Rappel quotidien ──
+    if (settings.notifRappel) {
+      const [h, m] = (settings.notifTime || '18:00').split(':').map(Number);
+      const next = new Date();
+      next.setHours(h, m, 0, 0);
+      if (next <= now) next.setDate(next.getDate() + 1);
+      const delay = next - now;
+      const t = setTimeout(() => {
+        sendNotification('💪 C\'est l\'heure de s\'entraîner !', 'FORGE t\'attend. Lance ta séance maintenant.', '💪');
+        scheduleAllNotifications(); // replanifie pour demain
+      }, delay);
+      window._notifTimers.push(t);
+    }
+
+    // ── Rappel inactivité ──
+    if (settings.notifInactif) {
+      const derniere = historique.length > 0
+        ? new Date(historique[historique.length - 1].date)
+        : null;
+      const joursInactif = derniere
+        ? Math.floor((now - derniere) / (1000 * 60 * 60 * 24))
+        : 99;
+
+      if (joursInactif >= 3) {
+        // Envoie immédiatement si déjà 3j+
+        setTimeout(() => {
+          sendNotification(
+            `😴 ${joursInactif} jours sans entraînement !`,
+            'Le muscle attend. Reprends là où tu t\'es arrêté.',
+            '😴'
+          );
+        }, 2000);
+      } else {
+        // Planifie dans (3 - joursInactif) jours
+        const remaining = (3 - joursInactif) * 24 * 60 * 60 * 1000;
+        const t = setTimeout(() => {
+          sendNotification('😴 3 jours sans séance !', 'Ton corps a besoin de toi. Lance une séance maintenant.', '😴');
+        }, remaining);
+        window._notifTimers.push(t);
+      }
+    }
+
+    // ── Résumé hebdomadaire (dimanche 20h) ──
+    if (settings.notifResume) {
+      const next = new Date();
+      const dayOfWeek = next.getDay(); // 0 = dimanche
+      const daysUntilSunday = dayOfWeek === 0 ? 7 : 7 - dayOfWeek;
+      next.setDate(next.getDate() + daysUntilSunday);
+      next.setHours(20, 0, 0, 0);
+      const delay = next - now;
+      const t = setTimeout(() => {
+        const week = historique.filter(h => {
+          const d = new Date(h.date);
+          return (now - d) / (1000 * 60 * 60 * 24) <= 7;
+        });
+        sendNotification(
+          `📊 Résumé de ta semaine`,
+          week.length > 0
+            ? `${week.length} séance${week.length > 1 ? 's' : ''} cette semaine. Bravo ! 🏆`
+            : 'Aucune séance cette semaine. La semaine prochaine sera la bonne ! 💪',
+          '📊'
+        );
+        scheduleAllNotifications();
+      }, delay);
+      window._notifTimers.push(t);
+    }
+  }
+
+  function sendNotification(title, body, icon = '💪') {
+    if (Notification.permission !== 'granted') return;
+    try {
+      if (swRegistration && swRegistration.showNotification) {
+        swRegistration.showNotification(title, { body, icon: icon, badge: icon, vibrate: [200, 100, 200] });
+      } else {
+        new Notification(title, { body });
+      }
+    } catch(e) {
+      new Notification(title, { body });
+    }
+  }
+
+  async function testNotification() {
+    const ok = await requestNotifPermission();
+    if (!ok) return;
+    setTimeout(() => {
+      sendNotification('🧪 Test FORGE', 'Les notifications fonctionnent correctement !', '💪');
+    }, 500);
+    showToast('Notification envoyée dans 1 sec...');
+  }
+
+  // ══ EXPORT / IMPORT ══
   function exportData() {
-    const data = JSON.stringify({ seances, historique }, null, 2);
+    const data = JSON.stringify({ seances, historique, exportedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'forge-data.json'; a.click();
+    a.href = url; a.download = `forge-backup-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
     showToast('Données exportées ✓');
+  }
+
+  function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.seances && !data.historique) {
+          showToast('❌ Fichier invalide');
+          return;
+        }
+        const hasExisting = seances.length > 0 || historique.length > 0;
+        const action = hasExisting
+          ? confirm('Fusionner avec tes données actuelles ?\n\nOK = Fusionner\nAnnuler = Remplacer')
+          : false;
+
+        if (action) {
+          // Fusion — évite les doublons par date
+          const existingDates = new Set(historique.map(h => h.date));
+          const newHistorique = (data.historique || []).filter(h => !existingDates.has(h.date));
+          historique = [...historique, ...newHistorique];
+
+          const existingNames = new Set(seances.map(s => s.name));
+          const newSeances = (data.seances || []).filter(s => !existingNames.has(s.name));
+          seances = [...seances, ...newSeances];
+          showToast(`✓ Fusion : +${newSeances.length} séances, +${newHistorique.length} entrées`);
+        } else {
+          seances = data.seances || [];
+          historique = data.historique || [];
+          showToast('✓ Données importées !');
+        }
+
+        DB.set('seances', seances);
+        DB.set('historique', historique);
+        renderHome(); renderSeances(); renderHistorique();
+      } catch(err) {
+        showToast('❌ Erreur lors de l\'import');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = ''; // reset input
   }
 
   function clearData() {
     localStorage.clear();
     seances = []; historique = [];
-    renderHome(); renderSeances();
+    settings = { son: true };
+    DB.set('settings', settings);
+    renderHome(); renderSeances(); renderHistorique();
     showToast('Données effacées');
   }
 
@@ -1246,6 +1566,10 @@
   // ══ INIT ══
   document.getElementById('toggle-son').classList.toggle('on', settings.son);
   renderHome();
+  initNotifications();
+
+  // Planifie les notifs à chaque ouverture de l'app
+  window.addEventListener('focus', scheduleAllNotifications);
 
   // Déverouiller AudioContext au premier touch
   document.addEventListener('touchstart', () => {
