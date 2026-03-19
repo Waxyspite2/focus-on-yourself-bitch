@@ -6,9 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="theme-color" content="#0a0a0f" />
-  <title>FORGE — Entraînement</title>
+  <title>FOYB — Entraînement</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <style>
     :root {
       --bg: #0a0a0f;
@@ -634,6 +638,38 @@
     .ob-option-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
     .ob-bottom { margin-top: auto; padding-top: 20px; }
 
+    /* ── AUTH SCREEN ── */
+    #auth-screen {
+      display: none; position: fixed; inset: 0; z-index: 600;
+      background: var(--bg); flex-direction: column;
+      padding: calc(var(--safe-top) + 40px) 28px calc(var(--safe-bottom) + 28px);
+      align-items: center; justify-content: center;
+    }
+    #auth-screen.open { display: flex; }
+    .auth-logo { font-family: var(--font-display); font-size: 48px; font-weight: 800; color: var(--violet-light); margin-bottom: 8px; letter-spacing: -2px; }
+    .auth-tagline { font-size: 14px; color: var(--text-muted); margin-bottom: 48px; }
+    .auth-form { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+    .auth-tabs { display: flex; background: var(--bg3); border-radius: 14px; padding: 4px; margin-bottom: 8px; }
+    .auth-tab { flex: 1; padding: 10px; border-radius: 10px; border: none; background: none; color: var(--text-muted); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .auth-tab.active { background: var(--violet); color: #fff; box-shadow: 0 2px 8px var(--violet-glow); }
+    .auth-divider { display: flex; align-items: center; gap: 12px; color: var(--text-dim); font-size: 12px; margin: 4px 0; }
+    .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--bg3); border: 1px solid var(--border); color: var(--text); border-radius: 16px; padding: 14px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; transition: all 0.2s; }
+    .btn-google:active { transform: scale(0.97); }
+    .auth-error { color: var(--danger); font-size: 13px; text-align: center; min-height: 18px; }
+    .auth-skip { color: var(--text-muted); font-size: 13px; text-align: center; margin-top: 16px; cursor: pointer; text-decoration: underline; }
+
+    /* ── PREMIUM LOCK ── */
+    .premium-lock {
+      background: linear-gradient(135deg, #1a0d2e, #0f0f18);
+      border: 1px solid rgba(124,58,237,0.3); border-radius: 20px;
+      padding: 24px; text-align: center; margin-bottom: 12px;
+    }
+    .premium-lock-icon { font-size: 36px; margin-bottom: 12px; }
+    .premium-lock-title { font-family: var(--font-display); font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    .premium-lock-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5; }
+    .premium-badge { display: inline-block; background: var(--violet); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; margin-left: 6px; vertical-align: middle; }
+
     /* ── BIBLIOTHÈQUE ── */
     .biblio-filter {
       display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
@@ -909,6 +945,51 @@
         </div>
       </div>
 
+      <!-- Compte -->
+      <div class="section-title" style="margin-top:16px;">Compte</div>
+      <div class="settings-group" id="account-group">
+        <div class="settings-item" id="account-info-row">
+          <div class="settings-item-left">
+            <div class="settings-icon">👤</div>
+            <div>
+              <div class="settings-text" id="account-email-display">Non connecté</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;" id="account-plan-display">Mode local</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-item" id="account-sync-row" style="display:none;" onclick="syncNow()">
+          <div class="settings-item-left">
+            <div class="settings-icon">☁️</div>
+            <div class="settings-text">Synchroniser maintenant</div>
+          </div>
+          <span class="settings-arrow" id="sync-status">›</span>
+        </div>
+        <div class="settings-item" id="account-premium-row" onclick="showPremiumInfo()">
+          <div class="settings-item-left">
+            <div class="settings-icon">⭐</div>
+            <div>
+              <div class="settings-text">Passer Premium <span class="premium-badge">BIENTÔT</span></div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Templates, graphiques, records</div>
+            </div>
+          </div>
+          <span class="settings-arrow">›</span>
+        </div>
+        <div class="settings-item" id="account-login-row" onclick="showAuthScreen()">
+          <div class="settings-item-left">
+            <div class="settings-icon">🔑</div>
+            <div class="settings-text">Se connecter / S'inscrire</div>
+          </div>
+          <span class="settings-arrow">›</span>
+        </div>
+        <div class="settings-item" id="account-logout-row" style="display:none;" onclick="logout()">
+          <div class="settings-item-left">
+            <div class="settings-icon">🚪</div>
+            <div style="color:var(--danger); font-size:15px; font-weight:500;">Se déconnecter</div>
+          </div>
+          <span class="settings-arrow">›</span>
+        </div>
+      </div>
+
       <!-- Données -->
       <div class="section-title" style="margin-top:16px;">Données</div>
       <div class="settings-group">
@@ -1152,6 +1233,40 @@
     <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;" id="templates-subtitle">Choisis un programme adapté à ton niveau</p>
     <div id="templates-list" style="overflow-y:auto; max-height:65dvh;"></div>
     <button class="btn-secondary" style="margin-top:16px;" onclick="document.getElementById('modal-templates').classList.remove('open')">Fermer</button>
+  </div>
+</div>
+
+<!-- ══ AUTH SCREEN ══ -->
+<div id="auth-screen">
+  <div class="auth-logo">FOYB</div>
+  <div class="auth-tagline">Forge ta progression. Chaque jour.</div>
+
+  <div class="auth-form">
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login', this)">Connexion</button>
+      <button class="auth-tab" onclick="switchAuthTab('register', this)">Inscription</button>
+    </div>
+
+    <input type="email" id="auth-email" placeholder="Email" autocomplete="email" />
+    <input type="password" id="auth-password" placeholder="Mot de passe" autocomplete="current-password" />
+    <div id="auth-name-row" style="display:none;">
+      <input type="text" id="auth-name" placeholder="Ton prénom" />
+    </div>
+
+    <button class="btn-primary" onclick="authWithEmail()">
+      <span id="auth-btn-label">Se connecter</span>
+    </button>
+
+    <div class="auth-error" id="auth-error"></div>
+
+    <div class="auth-divider">ou</div>
+
+    <button class="btn-google" onclick="authWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continuer avec Google
+    </button>
+
+    <div class="auth-skip" onclick="skipAuth()">Continuer sans compte →</div>
   </div>
 </div>
 
@@ -2514,6 +2629,8 @@
     updateProfilUI();
     renderHome();
     showToast(`Bienvenue ${settings.prenom} ! 🔥`);
+    // Propose la connexion après l'onboarding
+    setTimeout(() => showAuthScreen(), 1000);
   }
 
   // ══ BIBLIOTHÈQUE D'EXERCICES ══
@@ -2804,7 +2921,248 @@
     showToast(`"${t.name}" ajoutée ✓`);
   }
 
-  // ══ TOAST ══
+  // ══ FIREBASE ══
+  const firebaseConfig = {
+    apiKey: "AIzaSyAVfiQB0QiY02OMZzlbG4tOxmp8zreWPng",
+    authDomain: "foyb-ee0a4.firebaseapp.com",
+    projectId: "foyb-ee0a4",
+    storageBucket: "foyb-ee0a4.firebasestorage.app",
+    messagingSenderId: "82092773566",
+    appId: "1:82092773566:web:4324d5d68131781f93ceef"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  let currentUser = null;
+  let isPremium = false;
+
+  // ── Auth state listener ──
+  auth.onAuthStateChanged(async user => {
+    currentUser = user;
+    if (user) {
+      // Charge les données depuis Firestore
+      await loadFromCloud();
+      // Vérifie le statut premium
+      const doc = await db.collection('users').doc(user.uid).get();
+      isPremium = doc.exists && doc.data().premium === true;
+      updateAccountUI();
+      renderHome();
+    } else {
+      isPremium = false;
+      updateAccountUI();
+    }
+  });
+
+  // ── Auth Screen ──
+  let authMode = 'login';
+
+  function showAuthScreen() {
+    document.getElementById('auth-screen').classList.add('open');
+    document.getElementById('auth-error').textContent = '';
+  }
+
+  function switchAuthTab(mode, btn) {
+    authMode = mode;
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('auth-btn-label').textContent = mode === 'login' ? 'Se connecter' : 'Créer mon compte';
+    document.getElementById('auth-name-row').style.display = mode === 'register' ? 'block' : 'none';
+    document.getElementById('auth-error').textContent = '';
+  }
+
+  async function authWithEmail() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const name = document.getElementById('auth-name').value.trim();
+    document.getElementById('auth-error').textContent = '';
+
+    if (!email || !password) { document.getElementById('auth-error').textContent = 'Remplis tous les champs'; return; }
+
+    try {
+      if (authMode === 'register') {
+        if (!name) { document.getElementById('auth-error').textContent = 'Entre ton prénom'; return; }
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        await cred.user.updateProfile({ displayName: name });
+        settings.prenom = name;
+        DB.set('settings', settings);
+        updateProfilUI();
+      } else {
+        await auth.signInWithEmailAndPassword(email, password);
+      }
+      document.getElementById('auth-screen').classList.remove('open');
+      showToast('Connecté ✓');
+    } catch(e) {
+      const msgs = {
+        'auth/email-already-in-use': 'Email déjà utilisé',
+        'auth/wrong-password': 'Mot de passe incorrect',
+        'auth/user-not-found': 'Aucun compte avec cet email',
+        'auth/weak-password': 'Mot de passe trop court (6 car. min)',
+        'auth/invalid-email': 'Email invalide',
+        'auth/invalid-credential': 'Email ou mot de passe incorrect',
+      };
+      document.getElementById('auth-error').textContent = msgs[e.code] || 'Erreur : ' + e.message;
+    }
+  }
+
+  async function authWithGoogle() {
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await auth.signInWithPopup(provider);
+      document.getElementById('auth-screen').classList.remove('open');
+      showToast('Connecté avec Google ✓');
+    } catch(e) {
+      document.getElementById('auth-error').textContent = 'Erreur Google : ' + e.message;
+    }
+  }
+
+  function skipAuth() {
+    document.getElementById('auth-screen').classList.remove('open');
+  }
+
+  async function logout() {
+    if (!confirm('Se déconnecter ?')) return;
+    await auth.signOut();
+    currentUser = null;
+    updateAccountUI();
+    showToast('Déconnecté');
+  }
+
+  // ── Sync Cloud ──
+  async function loadFromCloud() {
+    if (!currentUser) return;
+    try {
+      const userDoc = await db.collection('users').doc(currentUser.uid).get();
+      if (userDoc.exists) {
+        const data = userDoc.data();
+        if (data.seances) { seances = data.seances; DB.set('seances', seances); }
+        if (data.historique) { historique = data.historique; DB.set('historique', historique); }
+        if (data.settings) {
+          settings = { ...settings, ...data.settings };
+          DB.set('settings', settings);
+        }
+        renderSeances(); renderHistorique(); renderHome();
+        showToast('Données synchronisées ☁️');
+      }
+    } catch(e) { console.log('Load error:', e); }
+  }
+
+  async function syncNow() {
+    if (!currentUser) { showToast('Connecte-toi d\'abord !'); return; }
+    document.getElementById('sync-status').textContent = '⏳';
+    try {
+      await db.collection('users').doc(currentUser.uid).set({
+        seances, historique,
+        settings: { prenom: settings.prenom, objectif: settings.objectif, objectifHebdo: settings.objectifHebdo, niveau: settings.niveau },
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      document.getElementById('sync-status').textContent = '✓';
+      setTimeout(() => document.getElementById('sync-status').textContent = '›', 2000);
+      showToast('Synchronisé ✓');
+    } catch(e) {
+      document.getElementById('sync-status').textContent = '✗';
+      showToast('Erreur de sync');
+    }
+  }
+
+  // Sync auto après chaque entraînement
+  const _origFinishWorkout = finishWorkout;
+
+  // ── Account UI ──
+  function updateAccountUI() {
+    const loginRow = document.getElementById('account-login-row');
+    const logoutRow = document.getElementById('account-logout-row');
+    const syncRow = document.getElementById('account-sync-row');
+    const emailDisplay = document.getElementById('account-email-display');
+    const planDisplay = document.getElementById('account-plan-display');
+
+    if (currentUser) {
+      loginRow.style.display = 'none';
+      logoutRow.style.display = 'flex';
+      syncRow.style.display = 'flex';
+      emailDisplay.textContent = currentUser.displayName || currentUser.email;
+      planDisplay.textContent = isPremium ? '⭐ Premium' : '✓ Connecté — Sync active';
+    } else {
+      loginRow.style.display = 'flex';
+      logoutRow.style.display = 'none';
+      syncRow.style.display = 'none';
+      emailDisplay.textContent = 'Non connecté';
+      planDisplay.textContent = 'Mode local uniquement';
+    }
+    updateProfilUI();
+  }
+
+  // ── Premium ──
+  function isPremiumUser() { return isPremium; }
+
+  function showPremiumInfo() {
+    showToast('Premium bientôt disponible ! 🔥');
+  }
+
+  function checkPremium(feature) {
+    if (isPremiumUser()) return true;
+    const locks = {
+      templates: 'Les templates sont réservés aux membres Premium',
+      graphiques: 'Les graphiques sont réservés aux membres Premium',
+      records: 'Les records sont réservés aux membres Premium',
+    };
+    showPremiumModal(locks[feature] || 'Cette fonctionnalité est Premium');
+    return false;
+  }
+
+  function showPremiumModal(msg) {
+    const existing = document.getElementById('premium-modal-overlay');
+    if (existing) existing.remove();
+    const div = document.createElement('div');
+    div.id = 'premium-modal-overlay';
+    div.className = 'modal-overlay open';
+    div.innerHTML = `
+      <div class="modal" style="text-align:center;">
+        <div class="modal-handle"></div>
+        <div class="premium-lock-icon">⭐</div>
+        <div class="premium-lock-title">Fonctionnalité Premium</div>
+        <div class="premium-lock-sub">${msg}<br><br>Le Premium sera disponible très bientôt.</div>
+        <button class="btn-primary" onclick="this.closest('.modal-overlay').remove()">Compris</button>
+        <div style="margin-top:10px; font-size:13px; color:var(--text-muted);">
+          ${!currentUser ? '<span style="cursor:pointer; text-decoration:underline;" onclick="document.getElementById(\'premium-modal-overlay\').remove(); showAuthScreen()">Créer un compte gratuit →</span>' : ''}
+        </div>
+      </div>`;
+    div.addEventListener('click', e => { if (e.target === div) div.remove(); });
+    document.body.appendChild(div);
+  }
+
+  // Override openTemplates pour vérifier premium
+  const _origOpenTemplates = openTemplates;
+  function openTemplates() {
+    if (!checkPremium('templates')) return;
+    _origOpenTemplates();
+  }
+
+  // Override openRecords pour vérifier premium
+  const _origOpenRecords = openRecords;
+  function openRecords() {
+    if (!checkPremium('records')) return;
+    _origOpenRecords();
+  }
+
+  // Override graph section pour vérifier premium
+  const _origRenderHistorique = renderHistorique;
+  function renderHistorique() {
+    _origRenderHistorique();
+    if (!isPremiumUser()) {
+      const graphSection = document.getElementById('graph-section');
+      if (graphSection && graphSection.style.display !== 'none') {
+        graphSection.innerHTML = `
+          <div class="premium-lock">
+            <div class="premium-lock-icon">📈</div>
+            <div class="premium-lock-title">Graphiques de progression</div>
+            <div class="premium-lock-sub">Visualise ta progression sur chaque exercice. Fonctionnalité Premium.</div>
+            <button class="btn-primary" style="max-width:200px; margin:0 auto;" onclick="checkPremium('graphiques')">Débloquer ⭐</button>
+          </div>`;
+        graphSection.style.display = 'block';
+      }
+    }
+  }
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -2817,7 +3175,15 @@
   updateProfilUI();
   renderHome();
   initNotifications();
-  initOnboarding();
+
+  // Montre l'auth au premier lancement (seulement si pas d'onboarding fait)
+  const onboardingDone = DB.get('onboardingDone');
+  if (!onboardingDone) {
+    initOnboarding();
+  } else if (!DB.get('authShown')) {
+    DB.set('authShown', true);
+    setTimeout(() => showAuthScreen(), 800);
+  }
 
   // Planifie les notifs à chaque ouverture de l'app
   window.addEventListener('focus', scheduleAllNotifications);
