@@ -633,6 +633,60 @@
     .ob-option-text { font-size: 15px; font-weight: 600; }
     .ob-option-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
     .ob-bottom { margin-top: auto; padding-top: 20px; }
+
+    /* ── BIBLIOTHÈQUE ── */
+    .biblio-filter {
+      display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+      scrollbar-width: none; margin-bottom: 12px;
+    }
+    .biblio-filter::-webkit-scrollbar { display: none; }
+    .biblio-chip {
+      flex-shrink: 0; padding: 6px 14px; border-radius: 20px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg4);
+      color: var(--text-muted); transition: all 0.2s ease; white-space: nowrap;
+    }
+    .biblio-chip.active { background: var(--violet); border-color: var(--violet); color: #fff; }
+    .biblio-exo-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      cursor: pointer; transition: background 0.15s ease;
+    }
+    .biblio-exo-item:last-child { border-bottom: none; }
+    .biblio-exo-item:active { background: var(--bg4); }
+    .biblio-muscle {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--violet-light); margin-top: 2px;
+    }
+
+    /* ── RECORDS ── */
+    .record-card {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 20px; padding: 16px 18px; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .record-medal { font-size: 28px; }
+    .record-name { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+    .record-muscle { font-size: 11px; color: var(--violet-light); font-weight: 600; margin-top: 2px; }
+    .record-val { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--success); }
+    .record-date { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── TEMPLATES ── */
+    .template-card {
+      background: linear-gradient(135deg, #1a0d2e, #0f0f18);
+      border: 1px solid rgba(124,58,237,0.3); border-radius: 20px;
+      padding: 18px 20px; margin-bottom: 10px; cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .template-card:active { transform: scale(0.98); }
+    .template-badge {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      padding: 3px 10px; border-radius: 20px; margin-bottom: 8px;
+    }
+    .template-badge.debutant { background: rgba(34,211,165,0.15); color: var(--success); }
+    .template-badge.intermediaire { background: rgba(124,58,237,0.15); color: var(--violet-light); }
+    .template-badge.confirme { background: rgba(244,63,94,0.15); color: var(--danger); }
   </style>
 </head>
 <body>
@@ -721,6 +775,9 @@
       <p>Sélectionne une séance et lance-toi</p>
     </div>
     <div class="content">
+      <button class="btn-secondary" onclick="openTemplates()" style="margin-bottom:4px;">
+        ⚡ Templates de séances
+      </button>
       <div id="entrainement-list"></div>
     </div>
   </div>
@@ -728,8 +785,13 @@
   <!-- ══ HISTORIQUE ══ -->
   <div class="page" id="page-historique">
     <div class="page-header">
-      <h1>Histo<span>rique</span></h1>
-      <p>Tes performances passées</p>
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <h1>Histo<span>rique</span></h1>
+          <p>Tes performances passées</p>
+        </div>
+        <button onclick="openRecords()" style="background:rgba(255,160,0,0.1); border:1px solid rgba(255,160,0,0.2); color:#ffa500; border-radius:14px; padding:10px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;">🏆 Records</button>
+      </div>
     </div>
     <div class="content">
       <!-- Graphiques -->
@@ -919,7 +981,10 @@
 
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; margin-top:20px;">
       <div class="section-title" style="margin:0">Exercices</div>
-      <button onclick="addExerciseForm()" style="background:var(--violet-subtle); border:1px solid var(--border); color:var(--violet-light); border-radius:10px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">+ Ajouter</button>
+      <div style="display:flex; gap:8px;">
+        <button onclick="openBibliotheque()" style="background:var(--bg4); border:1px solid var(--border); color:var(--text-muted); border-radius:10px; padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer;">📚 Biblio</button>
+        <button onclick="addExerciseForm()" style="background:var(--violet-subtle); border:1px solid var(--border); color:var(--violet-light); border-radius:10px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">+ Ajouter</button>
+      </div>
     </div>
 
     <div id="exercises-list"></div>
@@ -1052,6 +1117,41 @@
 
       <div id="w-next-info" style="text-align:center; color:var(--text-muted); font-size:13px; padding:4px 0;"></div>
     </div>
+  </div>
+</div>
+
+<!-- ══ MODAL BIBLIOTHÈQUE ══ -->
+<div class="modal-overlay" id="modal-biblio">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 style="margin-bottom:16px;">📚 Bibliothèque</h2>
+    <div class="biblio-filter" id="biblio-filters"></div>
+    <div style="background:var(--bg4); border-radius:16px; overflow:hidden; max-height:50vh; overflow-y:auto;">
+      <div id="biblio-list"></div>
+    </div>
+    <button class="btn-secondary" style="margin-top:16px;" onclick="document.getElementById('modal-biblio').classList.remove('open')">Fermer</button>
+  </div>
+</div>
+
+<!-- ══ PAGE RECORDS ══ -->
+<div class="modal-overlay" id="modal-records">
+  <div class="modal" style="max-height:90dvh;">
+    <div class="modal-handle"></div>
+    <h2 style="margin-bottom:6px;">🏆 Records personnels</h2>
+    <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Tes meilleures performances</p>
+    <div id="records-list" style="overflow-y:auto; max-height:65dvh;"></div>
+    <button class="btn-secondary" style="margin-top:16px;" onclick="document.getElementById('modal-records').classList.remove('open')">Fermer</button>
+  </div>
+</div>
+
+<!-- ══ MODAL TEMPLATES ══ -->
+<div class="modal-overlay" id="modal-templates">
+  <div class="modal" style="max-height:92dvh;">
+    <div class="modal-handle"></div>
+    <h2 style="margin-bottom:6px;">⚡ Templates de séances</h2>
+    <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;" id="templates-subtitle">Choisis un programme adapté à ton niveau</p>
+    <div id="templates-list" style="overflow-y:auto; max-height:65dvh;"></div>
+    <button class="btn-secondary" style="margin-top:16px;" onclick="document.getElementById('modal-templates').classList.remove('open')">Fermer</button>
   </div>
 </div>
 
@@ -2416,6 +2516,294 @@
     showToast(`Bienvenue ${settings.prenom} ! 🔥`);
   }
 
+  // ══ BIBLIOTHÈQUE D'EXERCICES ══
+  const BIBLIOTHEQUE = [
+    // Poitrine
+    { name: 'Développé couché', muscle: 'Poitrine', groupe: 'Poitrine', avecCharge: true },
+    { name: 'Développé incliné', muscle: 'Poitrine haute', groupe: 'Poitrine', avecCharge: true },
+    { name: 'Écarté haltères', muscle: 'Poitrine', groupe: 'Poitrine', avecCharge: true },
+    { name: 'Pompes', muscle: 'Poitrine / Triceps', groupe: 'Poitrine', avecCharge: false },
+    { name: 'Dips', muscle: 'Poitrine / Triceps', groupe: 'Poitrine', avecCharge: false },
+    // Dos
+    { name: 'Tractions', muscle: 'Dos / Biceps', groupe: 'Dos', avecCharge: false },
+    { name: 'Rowing barre', muscle: 'Dos épais', groupe: 'Dos', avecCharge: true },
+    { name: 'Tirage vertical', muscle: 'Grand dorsal', groupe: 'Dos', avecCharge: true },
+    { name: 'Rowing haltère', muscle: 'Dos / Trapèzes', groupe: 'Dos', avecCharge: true },
+    { name: 'Soulevé de terre', muscle: 'Dos / Ischio / Fessiers', groupe: 'Dos', avecCharge: true },
+    { name: 'Shrugs', muscle: 'Trapèzes', groupe: 'Dos', avecCharge: true },
+    // Épaules
+    { name: 'Développé militaire', muscle: 'Deltoïdes', groupe: 'Épaules', avecCharge: true },
+    { name: 'Élévations latérales', muscle: 'Deltoïde latéral', groupe: 'Épaules', avecCharge: true },
+    { name: 'Élévations frontales', muscle: 'Deltoïde antérieur', groupe: 'Épaules', avecCharge: true },
+    { name: 'Oiseau haltères', muscle: 'Deltoïde postérieur', groupe: 'Épaules', avecCharge: true },
+    // Bras
+    { name: 'Curl haltères', muscle: 'Biceps', groupe: 'Bras', avecCharge: true },
+    { name: 'Curl barre', muscle: 'Biceps', groupe: 'Bras', avecCharge: true },
+    { name: 'Curl marteau', muscle: 'Biceps / Brachial', groupe: 'Bras', avecCharge: true },
+    { name: 'Extensions triceps', muscle: 'Triceps', groupe: 'Bras', avecCharge: true },
+    { name: 'Barre au front', muscle: 'Triceps', groupe: 'Bras', avecCharge: true },
+    { name: 'Pushdown câble', muscle: 'Triceps', groupe: 'Bras', avecCharge: true },
+    // Jambes
+    { name: 'Squat', muscle: 'Quadriceps / Fessiers', groupe: 'Jambes', avecCharge: true },
+    { name: 'Presse à cuisse', muscle: 'Quadriceps', groupe: 'Jambes', avecCharge: true },
+    { name: 'Fentes', muscle: 'Quadriceps / Fessiers', groupe: 'Jambes', avecCharge: false },
+    { name: 'Leg curl couché', muscle: 'Ischio-jambiers', groupe: 'Jambes', avecCharge: true },
+    { name: 'Leg extension', muscle: 'Quadriceps', groupe: 'Jambes', avecCharge: true },
+    { name: 'Mollets debout', muscle: 'Mollets', groupe: 'Jambes', avecCharge: true },
+    { name: 'Hip thrust', muscle: 'Fessiers', groupe: 'Jambes', avecCharge: true },
+    // Abdos
+    { name: 'Crunchs', muscle: 'Abdominaux', groupe: 'Abdos', avecCharge: false },
+    { name: 'Gainage', muscle: 'Abdominaux', groupe: 'Abdos', avecCharge: false },
+    { name: 'Russian twist', muscle: 'Obliques', groupe: 'Abdos', avecCharge: false },
+    { name: 'Relevé de jambes', muscle: 'Bas du ventre', groupe: 'Abdos', avecCharge: false },
+    { name: 'Ab wheel', muscle: 'Abdominaux', groupe: 'Abdos', avecCharge: false },
+  ];
+
+  const GROUPES = ['Tous', 'Poitrine', 'Dos', 'Épaules', 'Bras', 'Jambes', 'Abdos'];
+  let biblioGroupe = 'Tous';
+
+  function openBibliotheque() {
+    renderBiblioFilters();
+    renderBiblioList();
+    document.getElementById('modal-biblio').classList.add('open');
+  }
+
+  function renderBiblioFilters() {
+    document.getElementById('biblio-filters').innerHTML = GROUPES.map(g => `
+      <div class="biblio-chip ${g === biblioGroupe ? 'active' : ''}" onclick="setBiblioGroupe('${g}')">${g}</div>
+    `).join('');
+  }
+
+  function setBiblioGroupe(g) {
+    biblioGroupe = g;
+    renderBiblioFilters();
+    renderBiblioList();
+  }
+
+  function renderBiblioList() {
+    const filtered = biblioGroupe === 'Tous' ? BIBLIOTHEQUE : BIBLIOTHEQUE.filter(e => e.groupe === biblioGroupe);
+    document.getElementById('biblio-list').innerHTML = filtered.map((e, i) => `
+      <div class="biblio-exo-item" onclick="addFromBiblio(${BIBLIOTHEQUE.indexOf(e)})">
+        <div>
+          <div style="font-size:14px; font-weight:600;">${e.name}</div>
+          <div class="biblio-muscle">${e.muscle} ${e.avecCharge ? '· 🏋️' : '· 🤸'}</div>
+        </div>
+        <div style="color:var(--violet-light); font-size:18px;">+</div>
+      </div>
+    `).join('');
+  }
+
+  function addFromBiblio(idx) {
+    const e = BIBLIOTHEQUE[idx];
+    tempExercises.push({ name: e.name, series: 3, reps: 10, rest: 60, avecCharge: e.avecCharge });
+    renderExercisesList();
+    document.getElementById('modal-biblio').classList.remove('open');
+    showToast(`${e.name} ajouté ✓`);
+  }
+
+  // ══ RECORDS PERSONNELS ══
+  function openRecords() {
+    const records = calcAllRecords();
+    const el = document.getElementById('records-list');
+    if (records.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">🏆</div><p>Aucun record encore.<br>Enregistre des charges pendant l'entraînement !</p></div>`;
+    } else {
+      const medals = ['🥇', '🥈', '🥉'];
+      el.innerHTML = records.map((r, i) => `
+        <div class="record-card">
+          <div class="record-medal">${medals[i] || '🏅'}</div>
+          <div style="flex:1;">
+            <div class="record-name">${r.name}</div>
+            <div class="record-muscle">${r.muscle || ''}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="record-val">${r.max} kg</div>
+            <div class="record-date">${formatDate(r.date)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+    document.getElementById('modal-records').classList.add('open');
+  }
+
+  function calcAllRecords() {
+    const records = {};
+    historique.forEach(h => {
+      if (!h.charges) return;
+      h.charges.forEach(c => {
+        if (!c.poids) return;
+        const valides = c.poids.filter(p => p !== null && p > 0);
+        if (valides.length === 0) return;
+        const max = Math.max(...valides);
+        const biblio = BIBLIOTHEQUE.find(b => b.name === c.name);
+        if (!records[c.name] || max > records[c.name].max) {
+          records[c.name] = { name: c.name, max, date: h.date, muscle: biblio?.muscle || '' };
+        }
+      });
+    });
+    return Object.values(records).sort((a, b) => b.max - a.max);
+  }
+
+  // ══ TEMPLATES ══
+  const TEMPLATES = {
+    debutant: [
+      {
+        name: 'Full Body A', emoji: '💪', niveau: 'debutant',
+        description: 'Séance complète pour débutant · 3×/semaine',
+        exercises: [
+          { name: 'Squat', series: 3, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Développé couché', series: 3, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Rowing haltère', series: 3, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Développé militaire', series: 3, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Curl haltères', series: 3, reps: 12, rest: 60, avecCharge: true },
+          { name: 'Gainage', series: 3, reps: 30, rest: 60, avecCharge: false },
+        ]
+      },
+      {
+        name: 'Full Body B', emoji: '⚡', niveau: 'debutant',
+        description: 'Variation A pour alterner · 3×/semaine',
+        exercises: [
+          { name: 'Fentes', series: 3, reps: 12, rest: 90, avecCharge: false },
+          { name: 'Développé incliné', series: 3, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Tractions', series: 3, reps: 6, rest: 90, avecCharge: false },
+          { name: 'Élévations latérales', series: 3, reps: 12, rest: 60, avecCharge: true },
+          { name: 'Extensions triceps', series: 3, reps: 12, rest: 60, avecCharge: true },
+          { name: 'Crunchs', series: 3, reps: 20, rest: 45, avecCharge: false },
+        ]
+      },
+    ],
+    intermediaire: [
+      {
+        name: 'Push — Poitrine & Épaules', emoji: '🔥', niveau: 'intermediaire',
+        description: 'PPL — Jour Push · muscles antérieurs',
+        exercises: [
+          { name: 'Développé couché', series: 4, reps: 8, rest: 90, avecCharge: true },
+          { name: 'Développé incliné', series: 3, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Écarté haltères', series: 3, reps: 12, rest: 60, avecCharge: true },
+          { name: 'Développé militaire', series: 4, reps: 8, rest: 90, avecCharge: true },
+          { name: 'Élévations latérales', series: 3, reps: 15, rest: 60, avecCharge: true },
+          { name: 'Extensions triceps', series: 3, reps: 12, rest: 60, avecCharge: true },
+        ]
+      },
+      {
+        name: 'Pull — Dos & Biceps', emoji: '💪', niveau: 'intermediaire',
+        description: 'PPL — Jour Pull · muscles postérieurs',
+        exercises: [
+          { name: 'Tractions', series: 4, reps: 8, rest: 90, avecCharge: false },
+          { name: 'Rowing barre', series: 4, reps: 8, rest: 90, avecCharge: true },
+          { name: 'Tirage vertical', series: 3, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Rowing haltère', series: 3, reps: 12, rest: 60, avecCharge: true },
+          { name: 'Curl barre', series: 3, reps: 10, rest: 60, avecCharge: true },
+          { name: 'Curl marteau', series: 3, reps: 12, rest: 60, avecCharge: true },
+        ]
+      },
+      {
+        name: 'Legs — Cuisses & Fessiers', emoji: '🦵', niveau: 'intermediaire',
+        description: 'PPL — Jour Legs · membres inférieurs',
+        exercises: [
+          { name: 'Squat', series: 4, reps: 8, rest: 120, avecCharge: true },
+          { name: 'Presse à cuisse', series: 3, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Leg curl couché', series: 3, reps: 12, rest: 60, avecCharge: true },
+          { name: 'Leg extension', series: 3, reps: 15, rest: 60, avecCharge: true },
+          { name: 'Hip thrust', series: 3, reps: 12, rest: 60, avecCharge: true },
+          { name: 'Mollets debout', series: 4, reps: 15, rest: 45, avecCharge: true },
+        ]
+      },
+    ],
+    confirme: [
+      {
+        name: 'Push Lourd', emoji: '🔥', niveau: 'confirme',
+        description: 'PPL confirmé — Poitrine force',
+        exercises: [
+          { name: 'Développé couché', series: 5, reps: 5, rest: 180, avecCharge: true },
+          { name: 'Développé incliné', series: 4, reps: 6, rest: 120, avecCharge: true },
+          { name: 'Dips', series: 4, reps: 8, rest: 90, avecCharge: false },
+          { name: 'Développé militaire', series: 4, reps: 6, rest: 120, avecCharge: true },
+          { name: 'Élévations latérales', series: 4, reps: 15, rest: 60, avecCharge: true },
+          { name: 'Barre au front', series: 4, reps: 8, rest: 60, avecCharge: true },
+        ]
+      },
+      {
+        name: 'Pull Lourd', emoji: '⚡', niveau: 'confirme',
+        description: 'PPL confirmé — Dos force',
+        exercises: [
+          { name: 'Soulevé de terre', series: 4, reps: 5, rest: 180, avecCharge: true },
+          { name: 'Tractions lestées', series: 4, reps: 6, rest: 120, avecCharge: true },
+          { name: 'Rowing barre', series: 4, reps: 6, rest: 120, avecCharge: true },
+          { name: 'Tirage vertical', series: 3, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Curl barre', series: 4, reps: 8, rest: 60, avecCharge: true },
+          { name: 'Curl marteau', series: 3, reps: 10, rest: 60, avecCharge: true },
+        ]
+      },
+      {
+        name: 'Legs Lourd', emoji: '🦵', niveau: 'confirme',
+        description: 'PPL confirmé — Jambes force',
+        exercises: [
+          { name: 'Squat', series: 5, reps: 5, rest: 180, avecCharge: true },
+          { name: 'Fentes', series: 4, reps: 10, rest: 90, avecCharge: false },
+          { name: 'Presse à cuisse', series: 4, reps: 8, rest: 120, avecCharge: true },
+          { name: 'Leg curl couché', series: 4, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Hip thrust', series: 4, reps: 10, rest: 90, avecCharge: true },
+          { name: 'Mollets debout', series: 5, reps: 12, rest: 60, avecCharge: true },
+        ]
+      },
+    ]
+  };
+
+  function openTemplates() {
+    const niveau = settings.niveau || 'intermediaire';
+    const niveauLabels = { debutant: '🌱 Débutant', intermediaire: '💪 Intermédiaire', confirme: '🔥 Confirmé' };
+    document.getElementById('templates-subtitle').textContent =
+      `Templates adaptés à ton niveau : ${niveauLabels[niveau]}`;
+
+    const allTemplates = [...(TEMPLATES[niveau] || [])];
+    // Ajoute les autres niveaux en dessous
+    Object.entries(TEMPLATES).forEach(([niv, list]) => {
+      if (niv !== niveau) allTemplates.push(...list);
+    });
+
+    document.getElementById('templates-list').innerHTML = allTemplates.map((t, i) => {
+      const badgeClass = t.niveau;
+      const niveauText = { debutant: 'Débutant', intermediaire: 'Intermédiaire', confirme: 'Confirmé' };
+      return `
+        <div class="template-card" onclick="importTemplate(${JSON.stringify(t).replace(/"/g, '&quot;')})">
+          <div class="template-badge ${badgeClass}">${niveauText[t.niveau]}</div>
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+            <div style="font-size:28px;">${t.emoji}</div>
+            <div>
+              <div style="font-family:var(--font-display); font-weight:800; font-size:17px;">${t.name}</div>
+              <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">${t.description}</div>
+            </div>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            ${t.exercises.slice(0,4).map(e => `<span class="chip">${e.name}</span>`).join('')}
+            ${t.exercises.length > 4 ? `<span class="chip">+${t.exercises.length-4}</span>` : ''}
+          </div>
+          <div style="margin-top:12px;">
+            <div class="btn-primary" style="padding:12px; font-size:13px;">
+              + Ajouter à mes séances
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('modal-templates').classList.add('open');
+  }
+
+  function importTemplate(t) {
+    if (typeof t === 'string') t = JSON.parse(t.replace(/&quot;/g, '"'));
+    if (seances.find(s => s.name === t.name)) {
+      showToast('Cette séance existe déjà !');
+      return;
+    }
+    seances.push({ name: t.name, emoji: t.emoji, exercises: t.exercises, createdAt: new Date().toISOString() });
+    DB.set('seances', seances);
+    document.getElementById('modal-templates').classList.remove('open');
+    renderSeances(); renderHome(); renderEntrainement();
+    showToast(`"${t.name}" ajoutée ✓`);
+  }
+
   // ══ TOAST ══
   function showToast(msg) {
     const t = document.getElementById('toast');
@@ -2448,6 +2836,11 @@
   });
   document.getElementById('modal-poids').addEventListener('click', function(e) {
     if (e.target === this) confirmPoids(true);
+  });
+  ['modal-biblio', 'modal-records', 'modal-templates'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+      if (e.target === this) this.classList.remove('open');
+    });
   });
 </script>
 </body>
