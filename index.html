@@ -1148,10 +1148,16 @@
         <div class="workout-seance-name" id="w-seance-name"></div>
         <div class="workout-progress-text" id="w-progress-text"></div>
       </div>
-      <div style="text-align:right; min-width:72px;">
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px; min-width:72px;">
         <div style="font-family:var(--font-display); font-size:18px; font-weight:800; color:var(--violet-light);" id="w-chrono">0:00</div>
-        <div style="font-size:10px; color:var(--text-muted);">durée</div>
+        <button id="w-pause-btn" onclick="togglePause()" style="background:var(--bg4); border:1px solid var(--border); color:var(--text-muted); border-radius:8px; padding:3px 8px; font-size:11px; font-weight:600; cursor:pointer;">⏸ Pause</button>
       </div>
+    </div>
+
+    <!-- Barre de pause -->
+    <div id="w-pause-bar" style="display:none; background:rgba(239,159,39,0.1); border-bottom:1px solid rgba(239,159,39,0.2); padding:10px 20px; text-align:center;">
+      <div style="font-size:13px; color:#EF9F27; font-weight:600;">⏸ Séance en pause</div>
+      <button onclick="togglePause()" style="background:#EF9F27; color:#000; border:none; border-radius:10px; padding:6px 20px; font-size:13px; font-weight:700; cursor:pointer; margin-top:6px;">▶ Reprendre</button>
     </div>
 
     <div class="workout-body">
@@ -1161,15 +1167,30 @@
         <div class="series-indicator" id="w-series-dots"></div>
       </div>
 
+      <!-- Reps avec éditeur en ligne -->
       <div class="reps-display">
-        <div class="reps-big" id="w-reps">—</div>
-        <div class="reps-label">répétitions</div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:14px;">
+          <button onclick="adjustRepsLive(-1)" style="width:40px; height:40px; border-radius:50%; background:var(--bg4); border:1px solid var(--border); color:var(--text); font-size:20px; cursor:pointer;">−</button>
+          <div>
+            <div class="reps-big" id="w-reps">—</div>
+            <div class="reps-label">répétitions</div>
+          </div>
+          <button onclick="adjustRepsLive(1)" style="width:40px; height:40px; border-radius:50%; background:var(--bg4); border:1px solid var(--border); color:var(--text); font-size:20px; cursor:pointer;">+</button>
+        </div>
+        <div id="w-reps-modified" style="display:none; font-size:11px; color:#EF9F27; margin-top:4px; text-align:center;">✏️ Modifié pour cette série</div>
       </div>
 
       <!-- Poids actuel (si charges activées) -->
       <div id="w-poids-display" style="display:none; text-align:center; padding:4px 0;">
         <div style="font-family:var(--font-display); font-size:22px; font-weight:800; color:var(--success);" id="w-poids-val">—</div>
         <div style="font-size:12px; color:var(--text-muted);">kg · dernière charge</div>
+      </div>
+
+      <!-- Volume total (Premium) -->
+      <div id="w-volume-display" style="display:none; background:var(--bg3); border:1px solid var(--border); border-radius:16px; padding:12px 16px; text-align:center;">
+        <div style="font-size:11px; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;">Volume séance</div>
+        <div style="font-family:var(--font-display); font-size:24px; font-weight:800; color:var(--violet-light);" id="w-volume-val">0 kg</div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">séries × reps × poids</div>
       </div>
 
       <!-- Timer (caché par défaut) -->
@@ -1198,6 +1219,41 @@
 
       <div id="w-next-info" style="text-align:center; color:var(--text-muted); font-size:13px; padding:4px 0;"></div>
     </div>
+  </div>
+</div>
+
+<!-- ══ MODAL NOTE SÉANCE ══ -->
+<div class="modal-overlay" id="modal-note">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="font-size:40px; margin-bottom:8px;">🎉</div>
+      <h2 style="margin-bottom:4px;" id="note-seance-title">Séance terminée !</h2>
+      <div style="font-size:13px; color:var(--text-muted);" id="note-seance-stats"></div>
+    </div>
+
+    <!-- Volume total (Premium) -->
+    <div id="note-volume-section" style="display:none; background:var(--bg3); border:1px solid var(--border); border-radius:16px; padding:14px; text-align:center; margin-bottom:16px;">
+      <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">Volume total</div>
+      <div style="font-family:var(--font-display); font-size:28px; font-weight:800; color:var(--violet-light);" id="note-volume-val">0 kg</div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">séries × reps × poids</div>
+    </div>
+
+    <!-- Note -->
+    <div class="form-group">
+      <label>Note (optionnel)</label>
+      <textarea id="note-input" placeholder="Comment s'est passée cette séance ? Fatigue, bonne forme, PR battu..."
+        style="background:var(--bg4); border:1px solid var(--border); color:var(--text); border-radius:12px; padding:13px 16px; font-family:var(--font-body); font-size:14px; outline:none; width:100%; resize:none; min-height:90px; transition:border-color 0.2s;"
+        onfocus="this.style.borderColor='var(--violet)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+    </div>
+
+    <button class="btn-primary" onclick="saveNoteAndFinish()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      Terminer la séance
+    </button>
+    <button onclick="saveNoteAndFinish(true)" style="background:none; border:none; color:var(--text-muted); font-size:13px; padding:12px; width:100%; cursor:pointer; margin-top:4px;">
+      Passer sans note
+    </button>
   </div>
 </div>
 
@@ -1858,7 +1914,16 @@
     document.getElementById('w-seance-name').textContent = workout.seance.name;
     document.getElementById('w-progress-text').textContent = `Exercice ${workout.exIndex + 1}/${totalEx}`;
     document.getElementById('w-exercise-name').textContent = ex.name;
-    document.getElementById('w-reps').textContent = ex.reps;
+    const displayReps = workout.currentReps || ex.reps;
+    document.getElementById('w-reps').textContent = displayReps;
+    document.getElementById('w-reps-modified').style.display =
+      workout.currentReps && workout.currentReps !== ex.reps ? 'block' : 'none';
+
+    // Volume (Premium)
+    if (isPremiumUser()) {
+      document.getElementById('w-volume-display').style.display = 'block';
+      updateVolumeDisplay();
+    }
 
     // Affichage poids
     const poidsDisplay = document.getElementById('w-poids-display');
@@ -1945,6 +2010,7 @@
   function doValidateSerie(poids) {
     if (!workout) return;
     const ex = workout.seance.exercises[workout.exIndex];
+    const repsUsed = workout.currentReps || ex.reps;
 
     // Enregistre le poids
     if (poids !== null) {
@@ -1953,9 +2019,16 @@
       document.getElementById('w-poids-display').style.display = 'block';
     }
 
+    // Reset reps modifiées
+    workout.currentReps = null;
+    document.getElementById('w-reps-modified').style.display = 'none';
+
     playSound('start');
     workout.serieIndex++;
     workout.completedSeries++;
+
+    // Met à jour le volume live
+    updateVolumeDisplay();
 
     if (workout.serieIndex >= ex.series) {
       workout.exIndex++;
@@ -2020,20 +2093,66 @@
     clearInterval(timerInterval);
     clearInterval(chronoInterval);
     const duration = Date.now() - workoutStartTime;
-    const entry = {
+
+    // Calcule le volume total
+    const volume = calcVolume();
+
+    // Montre le modal de note
+    document.getElementById('note-seance-title').textContent = `${workout.seance.name} terminée ! 🎉`;
+    document.getElementById('note-seance-stats').textContent =
+      `${workout.completedSeries} séries · ${formatDuration(duration)}`;
+    document.getElementById('note-input').value = '';
+
+    // Volume (Premium)
+    if (isPremiumUser() && volume > 0) {
+      document.getElementById('note-volume-section').style.display = 'block';
+      document.getElementById('note-volume-val').textContent = volume.toLocaleString('fr') + ' kg';
+    } else {
+      document.getElementById('note-volume-section').style.display = 'none';
+    }
+
+    // Sauvegarde temporaire
+    window._pendingEntry = {
       date: new Date().toISOString(),
       seanceName: workout.seance.name,
       exercices: workout.seance.exercises.length,
       series: workout.completedSeries,
       duration,
-      charges: workout.avecCharges ? workout.charges : null
+      volume: volume || null,
+      charges: workout.avecCharges ? workout.charges : null,
+      note: ''
     };
+
+    document.getElementById('workout-active').classList.remove('open');
+    document.getElementById('modal-note').classList.add('open');
+  }
+
+  function saveNoteAndFinish(skip = false) {
+    document.getElementById('modal-note').classList.remove('open');
+    if (!window._pendingEntry) return;
+    const entry = window._pendingEntry;
+    if (!skip) entry.note = document.getElementById('note-input').value.trim();
     historique.push(entry);
     DB.set('historique', historique);
-    document.getElementById('workout-active').classList.remove('open');
     workout = null;
-    showToast('🎉 Entraînement terminé !');
+    window._pendingEntry = null;
+    showToast('🎉 Entraînement sauvegardé !');
     navigate('historique');
+    // Sync cloud si connecté
+    if (currentUser) setTimeout(syncNow, 1000);
+  }
+
+  function calcVolume() {
+    if (!workout || !workout.charges) return 0;
+    let total = 0;
+    workout.charges.forEach((c, exIdx) => {
+      const ex = workout.seance.exercises[exIdx];
+      if (!c.poids) return;
+      c.poids.forEach(p => {
+        if (p !== null && p > 0) total += p * (ex.reps || 10);
+      });
+    });
+    return Math.round(total);
   }
 
   function endWorkout() {
@@ -2043,6 +2162,68 @@
     document.getElementById('workout-active').classList.remove('open');
     workout = null;
     showToast('Entraînement arrêté');
+  }
+
+  // ── Pause ──
+  let isPaused = false;
+  let pauseStart = null;
+  let totalPausedTime = 0;
+
+  function togglePause() {
+    if (!workout) return;
+    isPaused = !isPaused;
+    const bar = document.getElementById('w-pause-bar');
+    const btn = document.getElementById('w-pause-btn');
+
+    if (isPaused) {
+      pauseStart = Date.now();
+      clearInterval(chronoInterval);
+      if (workout.resting) clearInterval(timerInterval);
+      bar.style.display = 'block';
+      btn.textContent = '▶ Reprendre';
+      btn.style.color = '#EF9F27';
+    } else {
+      totalPausedTime += Date.now() - pauseStart;
+      workoutStartTime += Date.now() - pauseStart;
+      bar.style.display = 'none';
+      btn.textContent = '⏸ Pause';
+      btn.style.color = '';
+      // Relance le chrono
+      chronoInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - workoutStartTime) / 1000);
+        const m = Math.floor(elapsed / 60);
+        const s2 = elapsed % 60;
+        document.getElementById('w-chrono').textContent = `${m}:${s2.toString().padStart(2,'0')}`;
+      }, 1000);
+      // Relance le timer de repos si en cours
+      if (workout.resting && workout.timerLeft > 0) {
+        timerInterval = setInterval(() => {
+          workout.timerLeft--;
+          updateTimerUI();
+          if (workout.timerLeft <= 0) { clearInterval(timerInterval); endRest(); }
+        }, 1000);
+      }
+    }
+  }
+
+  // ── Reps à la volée ──
+  function adjustRepsLive(delta) {
+    if (!workout) return;
+    const ex = workout.seance.exercises[workout.exIndex];
+    workout.currentReps = Math.max(1, (workout.currentReps || ex.reps) + delta);
+    document.getElementById('w-reps').textContent = workout.currentReps;
+    const modified = workout.currentReps !== ex.reps;
+    document.getElementById('w-reps-modified').style.display = modified ? 'block' : 'none';
+  }
+
+  // ── Volume live (Premium) ──
+  function updateVolumeDisplay() {
+    if (!isPremiumUser()) return;
+    const volume = calcVolume();
+    if (volume > 0) {
+      document.getElementById('w-volume-display').style.display = 'block';
+      document.getElementById('w-volume-val').textContent = volume.toLocaleString('fr') + ' kg';
+    }
   }
 
   // ══ AUDIO ══
@@ -2433,8 +2614,10 @@
             <span class="chip">${h.exercices} exercices</span>
             <span class="chip">${h.series} séries</span>
             <span class="chip">${formatDuration(h.duration)}</span>
+            ${h.volume ? `<span class="chip" style="color:var(--violet-light);">📊 ${h.volume.toLocaleString('fr')} kg</span>` : ''}
           </div>
           ${chargesHtml}
+          ${h.note ? `<div style="margin-top:10px; padding:10px 12px; background:var(--bg4); border-radius:10px; font-size:13px; color:var(--text-muted); line-height:1.5; border-left:2px solid var(--violet);">💬 ${h.note}</div>` : ''}
         </div>`;
     }).join('');
   }
@@ -3203,7 +3386,7 @@
   document.getElementById('modal-poids').addEventListener('click', function(e) {
     if (e.target === this) confirmPoids(true);
   });
-  ['modal-biblio', 'modal-records', 'modal-templates'].forEach(id => {
+  ['modal-biblio', 'modal-records', 'modal-templates', 'modal-note'].forEach(id => {
     document.getElementById(id).addEventListener('click', function(e) {
       if (e.target === this) this.classList.remove('open');
     });
