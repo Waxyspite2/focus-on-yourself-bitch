@@ -3275,19 +3275,58 @@
     updateProfilUI();
   }
 
-  // ── Premium ──
+  // ── Premium & Abonnement ──
   function isPremiumUser() { return isPremium; }
 
+  const BACKEND_URL = 'https://foyb-backend.vercel.app';
+  const PRICE_MENSUEL = 'price_1TCnwn3VfX2P5hegt1nHdTgy';
+  const PRICE_ANNUEL = 'price_1TCnxY3VfX2P5hegSET3KNod';
+
   function showPremiumInfo() {
-    showToast('Premium bientôt disponible ! 🔥');
+    showPremiumModal('Débloquez toutes les fonctionnalités FOYB Premium.');
+  }
+
+  async function startCheckout(priceId) {
+    if (!currentUser) {
+      showToast('Connecte-toi d\'abord !');
+      document.getElementById('premium-modal-overlay')?.remove();
+      setTimeout(() => showAuthScreen(), 300);
+      return;
+    }
+
+    const btn = document.getElementById(`btn-checkout-${priceId === PRICE_MENSUEL ? 'mensuel' : 'annuel'}`);
+    if (btn) { btn.textContent = '⏳ Chargement...'; btn.disabled = true; }
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/create-checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          priceId,
+          uid: currentUser.uid,
+          email: currentUser.email
+        })
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        showToast('Erreur : ' + (data.error || 'Réessaie'));
+        if (btn) { btn.textContent = 'Choisir'; btn.disabled = false; }
+      }
+    } catch(e) {
+      showToast('Erreur de connexion au serveur');
+      if (btn) { btn.textContent = 'Choisir'; btn.disabled = false; }
+    }
   }
 
   function checkPremium(feature) {
     if (isPremiumUser()) return true;
     const locks = {
-      templates: 'Les templates sont réservés aux membres Premium',
-      graphiques: 'Les graphiques sont réservés aux membres Premium',
-      records: 'Les records sont réservés aux membres Premium',
+      templates: 'Les templates de séances sont réservés aux membres Premium',
+      graphiques: 'Les graphiques de progression sont réservés aux membres Premium',
+      records: 'Les records personnels sont réservés aux membres Premium',
+      volume: 'Le suivi du volume est réservé aux membres Premium',
     };
     showPremiumModal(locks[feature] || 'Cette fonctionnalité est Premium');
     return false;
@@ -3302,12 +3341,75 @@
     div.innerHTML = `
       <div class="modal" style="text-align:center;">
         <div class="modal-handle"></div>
-        <div class="premium-lock-icon">⭐</div>
-        <div class="premium-lock-title">Fonctionnalité Premium</div>
-        <div class="premium-lock-sub">${msg}<br><br>Le Premium sera disponible très bientôt.</div>
-        <button class="btn-primary" onclick="this.closest('.modal-overlay').remove()">Compris</button>
-        <div style="margin-top:10px; font-size:13px; color:var(--text-muted);">
-          ${!currentUser ? '<span style="cursor:pointer; text-decoration:underline;" onclick="document.getElementById(\'premium-modal-overlay\').remove(); showAuthScreen()">Créer un compte gratuit →</span>' : ''}
+        <div style="font-size:40px; margin-bottom:12px;">⭐</div>
+        <div class="premium-lock-title" style="margin-bottom:8px;">Passe à Premium</div>
+        <div class="premium-lock-sub">${msg}</div>
+
+        <!-- Plans -->
+        <div style="display:flex; flex-direction:column; gap:10px; margin:20px 0;">
+
+          <!-- Annuel (recommandé) -->
+          <div style="background:var(--violet-subtle); border:2px solid var(--violet); border-radius:18px; padding:16px; position:relative;">
+            <div style="position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:var(--violet); color:#fff; font-size:10px; font-weight:700; padding:3px 12px; border-radius:20px; letter-spacing:1px;">MEILLEURE OFFRE</div>
+            <div style="font-family:var(--font-display); font-size:18px; font-weight:800; margin-bottom:2px;">Annuel</div>
+            <div style="font-size:24px; font-weight:800; color:var(--violet-light);">29,99€<span style="font-size:13px; font-weight:400; color:var(--text-muted);">/an</span></div>
+            <div style="font-size:12px; color:var(--success); font-weight:600; margin-bottom:12px;">~2,50€/mois · 2 mois offerts 🎉</div>
+            <button id="btn-checkout-annuel" class="btn-primary" onclick="startCheckout('${PRICE_ANNUEL}')" style="padding:12px;">
+              Choisir l'annuel
+            </button>
+          </div>
+
+          <!-- Mensuel -->
+          <div style="background:var(--bg4); border:1px solid var(--border); border-radius:18px; padding:16px;">
+            <div style="font-family:var(--font-display); font-size:18px; font-weight:800; margin-bottom:2px;">Mensuel</div>
+            <div style="font-size:24px; font-weight:800;">3,99€<span style="font-size:13px; font-weight:400; color:var(--text-muted);">/mois</span></div>
+            <div style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Sans engagement</div>
+            <button id="btn-checkout-mensuel" class="btn-secondary" onclick="startCheckout('${PRICE_MENSUEL}')" style="padding:12px;">
+              Choisir le mensuel
+            </button>
+          </div>
+        </div>
+
+        <!-- Features incluses -->
+        <div style="text-align:left; background:var(--bg3); border-radius:14px; padding:14px 16px; margin-bottom:16px;">
+          <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">Inclus dans Premium</div>
+          ${['📈 Graphiques de progression', '🏆 Records personnels', '⚡ Templates de séances', '📊 Volume total', '🔓 Toutes les futures fonctionnalités'].map(f => `
+            <div style="display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13px;">
+              <div style="color:var(--success); font-size:14px;">✓</div> ${f}
+            </div>`).join('')}
+        </div>
+
+        <button class="btn-secondary" onclick="document.getElementById('premium-modal-overlay').remove()">
+          Pas maintenant
+        </button>
+        ${!currentUser ? `<div style="margin-top:10px; font-size:13px; color:var(--text-muted); cursor:pointer; text-decoration:underline;" onclick="document.getElementById('premium-modal-overlay').remove(); showAuthScreen()">Créer un compte gratuit →</div>` : ''}
+      </div>`;
+    div.addEventListener('click', e => { if (e.target === div) div.remove(); });
+    document.body.appendChild(div);
+  }
+
+  // Gère le retour depuis Stripe
+  function handleStripeReturn() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('premium') === 'success') {
+      showToast('🎉 Bienvenue dans FOYB Premium !');
+      // Recharge le statut premium depuis Firebase
+      if (currentUser) {
+        setTimeout(async () => {
+          const doc = await db.collection('users').doc(currentUser.uid).get();
+          isPremium = doc.exists && doc.data().premium === true;
+          updateAccountUI();
+          renderHome();
+          if (isPremium) showToast('⭐ Premium activé !');
+        }, 2000);
+      }
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (params.get('premium') === 'cancel') {
+      showToast('Paiement annulé');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }
         </div>
       </div>`;
     div.addEventListener('click', e => { if (e.target === div) div.remove(); });
@@ -3346,6 +3448,7 @@
       }
     }
   }
+  // ══ TOAST ══
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -3358,6 +3461,7 @@
   updateProfilUI();
   renderHome();
   initNotifications();
+  handleStripeReturn();
 
   // Montre l'auth au premier lancement (seulement si pas d'onboarding fait)
   const onboardingDone = DB.get('onboardingDone');
