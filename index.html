@@ -3410,11 +3410,6 @@
       window.history.replaceState({}, '', window.location.pathname);
     }
   }
-        </div>
-      </div>`;
-    div.addEventListener('click', e => { if (e.target === div) div.remove(); });
-    document.body.appendChild(div);
-  }
 
   // Override openTemplates pour vérifier premium
   const _origOpenTemplates = openTemplates;
