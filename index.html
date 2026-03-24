@@ -811,7 +811,7 @@
       <p>Sélectionne une séance et lance-toi</p>
     </div>
     <div class="content">
-      <button class="btn-secondary" onclick="openTemplates()" style="margin-bottom:4px;">
+      <button class="btn-secondary" onclick="openTemplatesWithPremium()" style="margin-bottom:4px;">
         ⚡ Templates de séances
       </button>
       <div id="entrainement-list"></div>
@@ -826,7 +826,7 @@
           <h1>Histo<span>rique</span></h1>
           <p>Tes performances passées</p>
         </div>
-        <button onclick="openRecords()" style="background:rgba(255,160,0,0.1); border:1px solid rgba(255,160,0,0.2); color:#ffa500; border-radius:14px; padding:10px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;">🏆 Records</button>
+        <button onclick="openRecordsWithPremium()" style="background:rgba(255,160,0,0.1); border:1px solid rgba(255,160,0,0.2); color:#ffa500; border-radius:14px; padding:10px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;">🏆 Records</button>
       </div>
     </div>
     <div class="content">
@@ -1168,7 +1168,7 @@
       </div>
 
       <!-- Reps avec éditeur en ligne -->
-      <div class="reps-display">
+      <div class="reps-display" id="w-reps-section">
         <div style="display:flex; align-items:center; justify-content:center; gap:14px;">
           <button onclick="adjustRepsLive(-1)" style="width:40px; height:40px; border-radius:50%; background:var(--bg4); border:1px solid var(--border); color:var(--text); font-size:20px; cursor:pointer;">−</button>
           <div>
@@ -1178,6 +1178,26 @@
           <button onclick="adjustRepsLive(1)" style="width:40px; height:40px; border-radius:50%; background:var(--bg4); border:1px solid var(--border); color:var(--text); font-size:20px; cursor:pointer;">+</button>
         </div>
         <div id="w-reps-modified" style="display:none; font-size:11px; color:#EF9F27; margin-top:4px; text-align:center;">✏️ Modifié pour cette série</div>
+      </div>
+
+      <!-- Timer isométrique (gainage etc.) -->
+      <div id="w-iso-card" style="display:none;">
+        <div class="timer-card" style="border-color:rgba(34,211,165,0.3);">
+          <div class="timer-label" style="color:var(--success);">⏱ Exercice en cours</div>
+          <div class="timer-ring-container">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <circle class="timer-ring-bg" cx="80" cy="80" r="70"/>
+              <circle class="timer-ring-progress" id="iso-ring" cx="80" cy="80" r="70"
+                stroke-dasharray="439.82" stroke-dashoffset="0"
+                style="stroke:var(--success); filter:drop-shadow(0 0 8px rgba(34,211,165,0.5));"/>
+            </svg>
+            <div class="timer-value">
+              <div class="timer-seconds" id="w-iso-val" style="color:var(--success);">0</div>
+              <div class="timer-sub">sec restantes</div>
+            </div>
+          </div>
+          <button class="btn-secondary" onclick="skipIso()" style="width:auto; padding:10px 24px; font-size:13px;">Terminer →</button>
+        </div>
       </div>
 
       <!-- Poids actuel (si charges activées) -->
@@ -1499,7 +1519,7 @@
     if (page === 'home') renderHome();
     if (page === 'seances') renderSeances();
     if (page === 'entrainement') renderEntrainement();
-    if (page === 'historique') renderHistorique();
+    if (page === 'historique') renderHistoriqueWithPremium();
   }
 
   // ══ RENDER HOME ══
@@ -1742,7 +1762,7 @@
   }
 
   function addExerciseForm() {
-    tempExercises.push({ name: '', series: 3, reps: 10, rest: 60, avecCharge: true });
+    tempExercises.push({ name: '', series: 3, reps: 10, rest: 60, avecCharge: true, type: 'reps' });
     renderExercisesList();
   }
 
@@ -1759,6 +1779,23 @@
           <input type="text" value="${e.name}" placeholder="ex: Développé couché"
             oninput="tempExercises[${i}].name = this.value" />
         </div>
+
+        <!-- Type : Reps ou Durée -->
+        <div style="display:flex; background:var(--bg4); border-radius:12px; padding:4px; margin-bottom:12px;">
+          <button onclick="setExoType(${i}, 'reps')"
+            style="flex:1; padding:8px; border-radius:8px; border:none; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s;
+            background:${e.type !== 'duree' ? 'var(--violet)' : 'transparent'};
+            color:${e.type !== 'duree' ? '#fff' : 'var(--text-muted)'};">
+            🔢 Répétitions
+          </button>
+          <button onclick="setExoType(${i}, 'duree')"
+            style="flex:1; padding:8px; border-radius:8px; border:none; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.2s;
+            background:${e.type === 'duree' ? 'var(--violet)' : 'transparent'};
+            color:${e.type === 'duree' ? '#fff' : 'var(--text-muted)'};">
+            ⏱ Durée
+          </button>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label>Séries</label>
@@ -1766,9 +1803,9 @@
               oninput="tempExercises[${i}].series = parseInt(this.value)||1" />
           </div>
           <div class="form-group">
-            <label>Répétitions</label>
-            <input type="number" value="${e.reps}" min="1" max="100"
-              oninput="tempExercises[${i}].reps = parseInt(this.value)||1" />
+            <label>${e.type === 'duree' ? 'Durée (sec)' : 'Répétitions'}</label>
+            <input type="number" value="${e.type === 'duree' ? (e.duration || 30) : e.reps}" min="1" max="${e.type === 'duree' ? 600 : 100}"
+              oninput="${e.type === 'duree' ? `tempExercises[${i}].duration = parseInt(this.value)||30` : `tempExercises[${i}].reps = parseInt(this.value)||1`}" />
           </div>
         </div>
         <div class="form-group">
@@ -1787,6 +1824,12 @@
         </div>
       </div>
     `).join('');
+  }
+
+  function setExoType(i, type) {
+    tempExercises[i].type = type;
+    if (type === 'duree' && !tempExercises[i].duration) tempExercises[i].duration = 30;
+    renderExercisesList();
   }
 
   function removeExercise(i) {
@@ -1914,10 +1957,18 @@
     document.getElementById('w-seance-name').textContent = workout.seance.name;
     document.getElementById('w-progress-text').textContent = `Exercice ${workout.exIndex + 1}/${totalEx}`;
     document.getElementById('w-exercise-name').textContent = ex.name;
-    const displayReps = workout.currentReps || ex.reps;
-    document.getElementById('w-reps').textContent = displayReps;
-    document.getElementById('w-reps-modified').style.display =
-      workout.currentReps && workout.currentReps !== ex.reps ? 'block' : 'none';
+
+    // Affichage selon le type d'exercice
+    const isIso = ex.type === 'duree';
+    document.getElementById('w-reps-section').style.display = isIso ? 'none' : 'block';
+    document.getElementById('w-btn-series').style.display = isIso ? 'none' : 'flex';
+
+    if (!isIso) {
+      const displayReps = workout.currentReps || ex.reps;
+      document.getElementById('w-reps').textContent = displayReps;
+      document.getElementById('w-reps-modified').style.display =
+        workout.currentReps && workout.currentReps !== ex.reps ? 'block' : 'none';
+    }
 
     // Volume (Premium)
     if (isPremiumUser()) {
@@ -1967,6 +2018,12 @@
     if (!workout || workout.resting) return;
     const ex = workout.seance.exercises[workout.exIndex];
 
+    // Exercice isométrique → lancer le timer iso
+    if (ex.type === 'duree') {
+      startIsoTimer(ex.duration || 30);
+      return;
+    }
+
     // Si charges activées et exo avec charge → ouvrir modal poids
     if (workout.avecCharges && ex.avecCharge !== false) {
       openPoidsModal();
@@ -1974,6 +2031,83 @@
     }
     doValidateSerie(null);
   }
+
+  // ── Timer isométrique ──
+  let isoInterval = null;
+
+  function startIsoTimer(seconds) {
+    workout.isoRunning = true;
+    workout.isoLeft = seconds;
+    workout.isoTotal = seconds;
+
+    document.getElementById('w-iso-card').style.display = 'block';
+    document.getElementById('w-btn-series').style.display = 'none';
+    updateIsoUI();
+
+    isoInterval = setInterval(() => {
+      workout.isoLeft--;
+      updateIsoUI();
+      if (workout.isoLeft <= 0) {
+        clearInterval(isoInterval);
+        endIsoTimer();
+      }
+    }, 1000);
+  }
+
+  function updateIsoUI() {
+    const circumference = 2 * Math.PI * 70;
+    const progress = workout.isoLeft / workout.isoTotal;
+    document.getElementById('iso-ring').style.strokeDashoffset = circumference * (1 - progress);
+    document.getElementById('w-iso-val').textContent = workout.isoLeft;
+  }
+
+  function endIsoTimer() {
+    workout.isoRunning = false;
+    document.getElementById('w-iso-card').style.display = 'none';
+    document.getElementById('w-btn-series').style.display = 'flex';
+    playSound('end');
+    doValidateSerie(null);
+  }
+
+  function skipIso() {
+    clearInterval(isoInterval);
+    endIsoTimer();
+  }
+
+  // ── Chrono en arrière-plan (Page Visibility API) ──
+  document.addEventListener('visibilitychange', () => {
+    if (!workout) return;
+
+    if (document.hidden) {
+      // App mise en arrière-plan — note le timestamp
+      workout._hiddenAt = Date.now();
+    } else {
+      // App revenue au premier plan — calcule le temps écoulé
+      if (!workout._hiddenAt) return;
+      const elapsed = Math.floor((Date.now() - workout._hiddenAt) / 1000);
+      workout._hiddenAt = null;
+
+      // Met à jour le timer de repos si en cours
+      if (workout.resting && !isPaused) {
+        workout.timerLeft = Math.max(0, workout.timerLeft - elapsed);
+        updateTimerUI();
+        if (workout.timerLeft <= 0) {
+          clearInterval(timerInterval);
+          endRest();
+        }
+      }
+
+      // Met à jour le timer iso si en cours
+      if (workout.isoRunning && !isPaused) {
+        workout.isoLeft = Math.max(0, workout.isoLeft - elapsed);
+        updateIsoUI();
+        if (workout.isoLeft <= 0) {
+          clearInterval(isoInterval);
+          endIsoTimer();
+        }
+      }
+    }
+  });
 
   function openPoidsModal() {
     const ex = workout.seance.exercises[workout.exIndex];
@@ -2050,6 +2184,7 @@
     workout.resting = true;
     workout.timerLeft = seconds;
     workout.timerTotal = seconds;
+    workout._restStartedAt = Date.now();
 
     document.getElementById('w-timer-card').style.display = 'flex';
     document.getElementById('w-btn-series').textContent = '⏳ En repos...';
@@ -3412,36 +3547,147 @@
   }
 
   // Override openTemplates pour vérifier premium
-  const _origOpenTemplates = openTemplates;
-  function openTemplates() {
-    if (!checkPremium('templates')) return;
-    _origOpenTemplates();
+  // ── Vérification Premium pour les fonctionnalités ──
+  // Ces fonctions remplacent proprement les originales
+
+  function openTemplatesWithPremium() {
+    if (!isPremiumUser()) { checkPremium('templates'); return; }
+    // Appel direct de la logique des templates
+    const niveau = settings.niveau || 'intermediaire';
+    const niveauLabels = { debutant: '🌱 Débutant', intermediaire: '💪 Intermédiaire', confirme: '🔥 Confirmé' };
+    document.getElementById('templates-subtitle').textContent =
+      `Templates adaptés à ton niveau : ${niveauLabels[niveau]}`;
+    const allTemplates = [...(TEMPLATES[niveau] || [])];
+    Object.entries(TEMPLATES).forEach(([niv, list]) => {
+      if (niv !== niveau) allTemplates.push(...list);
+    });
+    document.getElementById('templates-list').innerHTML = allTemplates.map((t) => {
+      const badgeClass = t.niveau;
+      const niveauText = { debutant: 'Débutant', intermediaire: 'Intermédiaire', confirme: 'Confirmé' };
+      return `
+        <div class="template-card" onclick="importTemplate(${JSON.stringify(t).replace(/"/g, '&quot;')})">
+          <div class="template-badge ${badgeClass}">${niveauText[t.niveau]}</div>
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+            <div style="font-size:28px;">${t.emoji}</div>
+            <div>
+              <div style="font-family:var(--font-display); font-weight:800; font-size:17px;">${t.name}</div>
+              <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">${t.description}</div>
+            </div>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px;">
+            ${t.exercises.slice(0,4).map(e => `<span class="chip">${e.name}</span>`).join('')}
+            ${t.exercises.length > 4 ? `<span class="chip">+${t.exercises.length-4}</span>` : ''}
+          </div>
+          <div style="margin-top:12px;">
+            <div class="btn-primary" style="padding:12px; font-size:13px;">+ Ajouter à mes séances</div>
+          </div>
+        </div>`;
+    }).join('');
+    document.getElementById('modal-templates').classList.add('open');
   }
 
-  // Override openRecords pour vérifier premium
-  const _origOpenRecords = openRecords;
-  function openRecords() {
-    if (!checkPremium('records')) return;
-    _origOpenRecords();
+  function openRecordsWithPremium() {
+    if (!isPremiumUser()) { checkPremium('records'); return; }
+    const records = calcAllRecords();
+    const el = document.getElementById('records-list');
+    if (records.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">🏆</div><p>Aucun record encore.<br>Enregistre des charges pendant l'entraînement !</p></div>`;
+    } else {
+      const medals = ['🥇', '🥈', '🥉'];
+      el.innerHTML = records.map((r, i) => `
+        <div class="record-card">
+          <div class="record-medal">${medals[i] || '🏅'}</div>
+          <div style="flex:1;">
+            <div class="record-name">${r.name}</div>
+            <div class="record-muscle">${r.muscle || ''}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="record-val">${r.max} kg</div>
+            <div class="record-date">${formatDate(r.date)}</div>
+          </div>
+        </div>`).join('');
+    }
+    document.getElementById('modal-records').classList.add('open');
   }
 
-  // Override graph section pour vérifier premium
-  const _origRenderHistorique = renderHistorique;
-  function renderHistorique() {
-    _origRenderHistorique();
-    if (!isPremiumUser()) {
-      const graphSection = document.getElementById('graph-section');
-      if (graphSection && graphSection.style.display !== 'none') {
+  function renderHistoriqueWithPremium() {
+    // Collecte tous les exercices avec charges
+    const exosAvecCharges = {};
+    historique.forEach(h => {
+      if (!h.charges) return;
+      h.charges.forEach(c => {
+        if (!c.poids || c.poids.filter(p => p !== null).length === 0) return;
+        if (!exosAvecCharges[c.name]) exosAvecCharges[c.name] = [];
+        const max = Math.max(...c.poids.filter(p => p !== null));
+        exosAvecCharges[c.name].push({ date: h.date, max });
+      });
+    });
+
+    const exoNames = Object.keys(exosAvecCharges);
+    const graphSection = document.getElementById('graph-section');
+
+    if (exoNames.length > 0) {
+      if (!isPremiumUser()) {
+        graphSection.style.display = 'block';
         graphSection.innerHTML = `
           <div class="premium-lock">
             <div class="premium-lock-icon">📈</div>
             <div class="premium-lock-title">Graphiques de progression</div>
-            <div class="premium-lock-sub">Visualise ta progression sur chaque exercice. Fonctionnalité Premium.</div>
-            <button class="btn-primary" style="max-width:200px; margin:0 auto;" onclick="checkPremium('graphiques')">Débloquer ⭐</button>
+            <div class="premium-lock-sub">Visualise ta progression sur chaque exercice.</div>
+            <button class="btn-primary" style="max-width:220px; margin:0 auto;" onclick="checkPremium('graphiques')">Débloquer ⭐</button>
           </div>`;
+      } else {
         graphSection.style.display = 'block';
+        const tabs = document.getElementById('graph-tabs');
+        tabs.innerHTML = exoNames.map((name, i) => `
+          <div class="graph-tab ${i === 0 ? 'active' : ''}" onclick="selectGraphExo('${name}', this)">${name}</div>
+        `).join('');
+        currentGraphExo = exoNames[0];
+        drawGraph(exosAvecCharges[currentGraphExo], currentGraphExo);
+        window._exosChargesData = exosAvecCharges;
       }
+    } else {
+      graphSection.style.display = 'none';
     }
+
+    // Liste historique
+    const el = document.getElementById('historique-list');
+    if (historique.length === 0) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">📊</div><p>Aucun entraînement encore.<br>Lance-toi !</p></div>`;
+      return;
+    }
+    const sorted = [...historique].reverse();
+    el.innerHTML = sorted.map(h => {
+      let chargesHtml = '';
+      if (h.charges) {
+        const avecPoids = h.charges.filter(c => c.poids && c.poids.filter(p => p !== null).length > 0);
+        if (avecPoids.length > 0) {
+          chargesHtml = `<div style="margin-top:10px; display:flex; flex-direction:column; gap:4px;">
+            ${avecPoids.map(c => {
+              const valides = c.poids.filter(p => p !== null);
+              const max = Math.max(...valides);
+              return `<div style="display:flex; justify-content:space-between; font-size:12px;">
+                <span style="color:var(--text-muted)">${c.name}</span>
+                <span style="color:var(--success); font-weight:600;">max ${max} kg</span>
+              </div>`;
+            }).join('')}
+          </div>`;
+        }
+      }
+      return `
+        <div class="history-card" style="margin-bottom:10px;">
+          <div class="history-date">${formatDate(h.date)}</div>
+          <div class="history-name">${h.seanceName}</div>
+          <div class="history-tags">
+            <span class="chip">${h.exercices} exercices</span>
+            <span class="chip">${h.series} séries</span>
+            <span class="chip">${formatDuration(h.duration)}</span>
+            ${h.volume ? `<span class="chip" style="color:var(--violet-light);">📊 ${h.volume.toLocaleString('fr')} kg</span>` : ''}
+          </div>
+          ${chargesHtml}
+          ${h.note ? `<div style="margin-top:10px; padding:10px 12px; background:var(--bg4); border-radius:10px; font-size:13px; color:var(--text-muted); line-height:1.5; border-left:2px solid var(--violet);">💬 ${h.note}</div>` : ''}
+        </div>`;
+    }).join('');
   }
   // ══ TOAST ══
   function showToast(msg) {
