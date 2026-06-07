@@ -402,14 +402,22 @@
     #workout-active.open { display: flex; }
 
     .workout-top {
-      padding: 56px 24px 20px;
-      display: flex; align-items: center; gap: 16px;
+      padding: calc(var(--safe-top) + 8px) 16px 14px;
       border-bottom: 1px solid var(--border);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .workout-top-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .workout-top-center {
+      text-align: center; padding: 0 4px;
     }
     .workout-seance-name {
-      font-family: var(--font-display); font-size: 18px; font-weight: 800; flex: 1;
+      font-family: var(--font-display); font-size: 17px; font-weight: 800;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 100%;
     }
-    .workout-progress-text { font-size: 12px; color: var(--text-muted); }
+    .workout-progress-text { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
     .workout-body {
       flex: 1; overflow-y: auto;
@@ -1216,17 +1224,20 @@
 <div id="workout-active">
   <div style="position:relative; z-index:1;">
     <div class="workout-top">
-      <button onclick="endWorkout()" style="background:rgba(244,63,94,0.1); border:1px solid rgba(244,63,94,0.2); color:var(--danger); border-radius:12px; padding:10px 14px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        Arrêter
-      </button>
-      <div style="flex:1; text-align:center;">
-        <div class="workout-seance-name" id="w-seance-name"></div>
-        <div class="workout-progress-text" id="w-progress-text"></div>
-      </div>
-      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px; min-width:72px;">
-        <div style="font-family:var(--font-display); font-size:18px; font-weight:800; color:var(--accent-light);" id="w-chrono">0:00</div>
-        <button id="w-pause-btn" onclick="togglePause()" style="background:var(--bg4); border:1px solid var(--border); color:var(--text-muted); border-radius:8px; padding:3px 8px; font-size:11px; font-weight:600; cursor:pointer;">⏸ Pause</button>
+      <!-- Ligne 1 : Arrêter | Nom séance + Exercice N/N | Chrono + Pause -->
+      <div class="workout-top-row">
+        <button onclick="endWorkout()" style="flex-shrink:0; background:rgba(244,63,94,0.1); border:1px solid rgba(244,63,94,0.2); color:var(--danger); border-radius:12px; padding:9px 13px; font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:5px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Arrêter
+        </button>
+        <div class="workout-top-center" style="flex:1; min-width:0;">
+          <div class="workout-seance-name" id="w-seance-name"></div>
+          <div class="workout-progress-text" id="w-progress-text"></div>
+        </div>
+        <div style="flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
+          <div style="font-family:var(--font-display); font-size:18px; font-weight:800; color:var(--accent-light); line-height:1;" id="w-chrono">0:00</div>
+          <button id="w-pause-btn" onclick="togglePause()" style="background:var(--bg4); border:1px solid var(--border); color:var(--text-muted); border-radius:8px; padding:3px 9px; font-size:11px; font-weight:600; cursor:pointer; white-space:nowrap;">⏸ Pause</button>
+        </div>
       </div>
     </div>
 
