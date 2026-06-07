@@ -1981,10 +1981,43 @@
     document.getElementById('modal-launch').classList.add('open');
   }
 
+  // ══ WAKE LOCK (anti-freeze écran) ══
+  let wakeLock = null;
+
+  async function acquireWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch(e) {}
+  }
+
+  function releaseWakeLock() {
+    if (wakeLock) { wakeLock.release(); wakeLock = null; }
+  }
+
+  // Ré-acquiert le wake lock quand l'app revient au premier plan
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && workout && !isPaused) {
+      await acquireWakeLock();
+    }
+  });
+
   function confirmLaunch() {
     document.getElementById('modal-launch').classList.remove('open');
     const s = seances[pendingLaunchIndex];
     const avecCharges = document.getElementById('launch-toggle-charges').classList.contains('on');
+
+    // Vérifie si une séance en pause existe déjà pour cette séance
+    const savedWorkout = DB.get('workout_pause');
+    if (savedWorkout && savedWorkout.seanceName === s.name) {
+      if (confirm(`Reprendre la séance "${s.name}" en pause ?\n\nOK = Reprendre\nAnnuler = Nouvelle séance`)) {
+        restoreWorkoutFromPause(savedWorkout);
+        return;
+      } else {
+        DB.set('workout_pause', null);
+      }
+    }
 
     workout = {
       seance: s,
@@ -1996,22 +2029,77 @@
       timerTotal: 0,
       completedSeries: 0,
       avecCharges,
-      // charges[exoIndex] = { name, poids: [kg par série] }
       charges: s.exercises.map(e => ({ name: e.name, poids: [] })),
       startTime: Date.now()
     };
     workoutStartTime = Date.now();
+    DB.set('workout_pause', null);
 
-    // Chrono live
+    acquireWakeLock();
+    startChrono();
+
+    document.getElementById('workout-active').classList.add('open');
+    updateWorkoutUI();
+  }
+
+  function restoreWorkoutFromPause(saved) {
+    const s = seances[saved.seanceIndex];
+    if (!s) return;
+    workout = {
+      seance: s,
+      seanceIndex: saved.seanceIndex,
+      exIndex: saved.exIndex,
+      serieIndex: saved.serieIndex,
+      resting: false,
+      timerLeft: 0,
+      timerTotal: 0,
+      completedSeries: saved.completedSeries,
+      avecCharges: saved.avecCharges,
+      charges: saved.charges,
+      startTime: Date.now() - saved.elapsedMs,
+      currentReps: saved.currentReps || null
+    };
+    workoutStartTime = Date.now() - saved.elapsedMs;
+    DB.set('workout_pause', null);
+    isPaused = false;
+
+    acquireWakeLock();
+    startChrono();
+
+    document.getElementById('workout-active').classList.add('open');
+    document.getElementById('w-pause-bar').style.display = 'none';
+    document.getElementById('w-pause-btn').textContent = '⏸ Pause';
+    document.getElementById('w-pause-btn').style.color = '';
+    updateWorkoutUI();
+    showToast('🔄 Séance reprise !');
+  }
+
+  function saveWorkoutPause() {
+    if (!workout) return;
+    const elapsed = Date.now() - workoutStartTime;
+    DB.set('workout_pause', {
+      seanceName: workout.seance.name,
+      seanceIndex: workout.seanceIndex,
+      exIndex: workout.exIndex,
+      serieIndex: workout.serieIndex,
+      completedSeries: workout.completedSeries,
+      avecCharges: workout.avecCharges,
+      charges: workout.charges,
+      elapsedMs: elapsed,
+      currentReps: workout.currentReps || null,
+      savedAt: Date.now()
+    });
+  }
+
+  function startChrono() {
+    clearInterval(chronoInterval);
     chronoInterval = setInterval(() => {
+      if (isPaused) return;
       const elapsed = Math.floor((Date.now() - workoutStartTime) / 1000);
       const m = Math.floor(elapsed / 60);
       const s2 = elapsed % 60;
       document.getElementById('w-chrono').textContent = `${m}:${s2.toString().padStart(2,'0')}`;
     }, 1000);
-
-    document.getElementById('workout-active').classList.add('open');
-    updateWorkoutUI();
   }
 
   function updateWorkoutUI() {
@@ -2335,6 +2423,8 @@
   function finishWorkout() {
     clearInterval(timerInterval);
     clearInterval(chronoInterval);
+    releaseWakeLock();
+    DB.set('workout_pause', null);
     const duration = Date.now() - workoutStartTime;
 
     // Calcule le volume total
@@ -2379,6 +2469,7 @@
     DB.set('historique', historique);
     workout = null;
     window._pendingEntry = null;
+    isPaused = false;
     showToast('🎉 Entraînement sauvegardé !');
     navigate('historique');
     // Sync cloud si connecté
@@ -2403,7 +2494,10 @@
     clearInterval(timerInterval);
     clearInterval(chronoInterval);
     document.getElementById('workout-active').classList.remove('open');
+    releaseWakeLock();
+    DB.set('workout_pause', null);
     workout = null;
+    isPaused = false;
     showToast('Entraînement arrêté');
   }
 
@@ -2421,29 +2515,28 @@
     if (isPaused) {
       pauseStart = Date.now();
       clearInterval(chronoInterval);
-      if (workout.resting) clearInterval(timerInterval);
+      if (workout.resting || workout.isoRunning) clearInterval(timerInterval);
       bar.style.display = 'block';
       btn.textContent = '▶ Reprendre';
       btn.style.color = '#EF9F27';
+      releaseWakeLock();
+      saveWorkoutPause();
+      showToast('⏸ Séance sauvegardée — reprends quand tu veux');
     } else {
       totalPausedTime += Date.now() - pauseStart;
       workoutStartTime += Date.now() - pauseStart;
       bar.style.display = 'none';
       btn.textContent = '⏸ Pause';
       btn.style.color = '';
-      // Relance le chrono
-      chronoInterval = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - workoutStartTime) / 1000);
-        const m = Math.floor(elapsed / 60);
-        const s2 = elapsed % 60;
-        document.getElementById('w-chrono').textContent = `${m}:${s2.toString().padStart(2,'0')}`;
-      }, 1000);
-      // Relance le timer de repos si en cours
-      if (workout.resting && workout.timerLeft > 0) {
+      DB.set('workout_pause', null);
+      acquireWakeLock();
+      startChrono();
+      // Relance le timer de repos/iso si en cours
+      if ((workout.resting || workout.isoRunning) && workout.timerLeft > 0) {
         timerInterval = setInterval(() => {
           workout.timerLeft--;
           updateTimerUI();
-          if (workout.timerLeft <= 0) { clearInterval(timerInterval); endRest(); }
+          if (workout.timerLeft <= 0) { clearInterval(timerInterval); endUnifiedTimer(); }
         }, 1000);
       }
     }
@@ -2513,32 +2606,22 @@
   let swRegistration = null;
 
   async function initNotifications() {
-    // Vérifie si on est en mode PWA installée
-    const isStandalone = window.navigator.standalone === true ||
-      window.matchMedia('(display-mode: standalone)').matches;
-
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    if (!('Notification' in window)) {
       document.getElementById('notif-permission-banner').style.display = 'block';
       return;
     }
 
-    // Enregistre le service worker inline
-    try {
-      const swBlob = new Blob([`
-        self.addEventListener('notificationclick', e => {
-          e.notification.close();
-          e.waitUntil(clients.openWindow('/'));
-        });
-        self.addEventListener('message', e => {
-          if (e.data && e.data.type === 'SCHEDULE') {
-            // reçu
-          }
-        });
-      `], { type: 'application/javascript' });
-      const swUrl = URL.createObjectURL(swBlob);
-      swRegistration = await navigator.serviceWorker.register(swUrl);
-    } catch(e) {
-      console.log('SW error:', e);
+    // Tente d'enregistrer un SW minimal si supporté (pas via blob:, mais via data: ne fonctionne pas non plus)
+    // On utilise directement new Notification() — fonctionne si permission granted
+    // Sur iOS PWA, Notification.permission peut exister mais new Notification() peut nécessiter un SW
+    // On tente le SW uniquement si ServiceWorker disponible
+    if ('serviceWorker' in navigator) {
+      try {
+        // Utilise un SW inline via un fichier séparé n'est pas possible dans une PWA single-file
+        // Fallback : on enregistre le SW déjà présent si disponible, sinon on utilisera new Notification
+        const existing = await navigator.serviceWorker.getRegistration();
+        if (existing) swRegistration = existing;
+      } catch(e) {}
     }
 
     // Restore toggles
@@ -2551,7 +2634,6 @@
       document.getElementById('notif-rappel-time-label').textContent = `Tous les jours à ${settings.notifTime || '18:00'}`;
     }
 
-    // Planifie les notifs si permission déjà accordée
     if (Notification.permission === 'granted') {
       scheduleAllNotifications();
     }
@@ -2559,16 +2641,54 @@
 
   async function requestNotifPermission() {
     if (!('Notification' in window)) {
-      showToast('⚠️ Installe l\'app depuis Safari d\'abord');
+      showToast('⚠️ Notifications non supportées sur ce navigateur');
       return false;
     }
     if (Notification.permission === 'granted') return true;
     if (Notification.permission === 'denied') {
-      showToast('Notifications bloquées — vérifie les réglages iOS');
+      showToast('Notifications bloquées — autorise-les dans les réglages');
       return false;
     }
     const result = await Notification.requestPermission();
+    if (result === 'granted') {
+      showToast('✅ Notifications autorisées !');
+      scheduleAllNotifications();
+    }
     return result === 'granted';
+  }
+
+  function sendNotification(title, body, icon = '💪') {
+    if (Notification.permission !== 'granted') return;
+    try {
+      // Essaie via SW si disponible (meilleur support sur Android)
+      if (swRegistration) {
+        swRegistration.showNotification(title, {
+          body,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          vibrate: [200, 100, 200],
+          tag: 'forge-notif'
+        });
+      } else {
+        // Fallback direct (fonctionne sur desktop et iOS PWA récente)
+        new Notification(title, { body });
+      }
+    } catch(e) {
+      try { new Notification(title, { body }); } catch(e2) {}
+    }
+  }
+
+  async function testNotification() {
+    const ok = await requestNotifPermission();
+    if (!ok) {
+      showToast('⚠️ Permission refusée — vérifie les réglages');
+      return;
+    }
+    // Délai court pour que le navigateur ait le temps de traiter la permission
+    setTimeout(() => {
+      sendNotification('🧪 Test FORGE', 'Les notifications fonctionnent ! 💪');
+      showToast('✅ Notification envoyée !');
+    }, 200);
   }
 
   async function toggleNotifRappel() {
@@ -2704,28 +2824,6 @@
       }, delay);
       window._notifTimers.push(t);
     }
-  }
-
-  function sendNotification(title, body, icon = '💪') {
-    if (Notification.permission !== 'granted') return;
-    try {
-      if (swRegistration && swRegistration.showNotification) {
-        swRegistration.showNotification(title, { body, icon: icon, badge: icon, vibrate: [200, 100, 200] });
-      } else {
-        new Notification(title, { body });
-      }
-    } catch(e) {
-      new Notification(title, { body });
-    }
-  }
-
-  async function testNotification() {
-    const ok = await requestNotifPermission();
-    if (!ok) return;
-    setTimeout(() => {
-      sendNotification('🧪 Test FORGE', 'Les notifications fonctionnent correctement !', '💪');
-    }, 500);
-    showToast('Notification envoyée dans 1 sec...');
   }
 
   // ══ EXPORT / IMPORT ══
@@ -4006,6 +4104,20 @@
   renderHome();
   initNotifications();
   handleStripeReturn();
+
+  // Vérifie s'il y a une séance en pause à reprendre
+  setTimeout(() => {
+    const savedWorkout = DB.get('workout_pause');
+    if (savedWorkout && savedWorkout.savedAt) {
+      const ageHours = (Date.now() - savedWorkout.savedAt) / (1000 * 60 * 60);
+      if (ageHours < 24) { // ignore si plus de 24h
+        const mins = Math.floor(savedWorkout.elapsedMs / 60000);
+        showToast(`⏸ Séance "${savedWorkout.seanceName}" en pause (${mins}min) — Lance-la pour reprendre`);
+      } else {
+        DB.set('workout_pause', null);
+      }
+    }
+  }, 1500);
 
   // Ferme le modal theme en cliquant dehors
   document.getElementById('modal-theme').addEventListener('click', function(e) {
